@@ -1,0 +1,11 @@
+# Не тащим в образ локальные секреты и состояние (в k8s .env генерируется
+# из env пода — см. helm/templates/backend.yaml)
+.env
+.env.*
+docker/.env
+**/*.sqlite
+**/*.sqlite3
+bootstrap/cache/*.php
+vendor/
+node_modules/
+.git

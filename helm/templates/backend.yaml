@@ -36,6 +36,25 @@ spec:
       containers:
         - name: backend
           image: {{ .Values.registry }}/backend:{{ .Values.image.tag }}
+          # php-fpm, запущенный как PID 1, теряет env контейнера (известное поведение
+          # официального php-образа в docker/k8s), и Laravel читает .env, зашитый в образ.
+          # Поэтому генерируем .env из окружения пода перед стартом php-fpm.
+          command:
+            - sh
+            - -c
+            - |
+              : > /var/www/html/.env
+              for v in APP_NAME APP_ENV APP_KEY APP_DEBUG APP_URL \
+                       DB_CONNECTION DB_HOST DB_PORT DB_DATABASE DB_USERNAME DB_PASSWORD \
+                       MAIL_MAILER MAIL_HOST MAIL_PORT MAIL_USERNAME MAIL_PASSWORD MAIL_FROM_ADDRESS \
+                       FILESYSTEM_DISK SESSION_DRIVER SESSION_LIFETIME QUEUE_CONNECTION \
+                       CORS_ALLOWED_ORIGINS; do
+                val=$(printenv "$v" || true)
+                if [ -n "$val" ]; then
+                  printf '%s="%s"\n' "$v" "$val" >> /var/www/html/.env
+                fi
+              done
+              exec php-fpm
           ports:
             - containerPort: 9000
           resources:

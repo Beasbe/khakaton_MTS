@@ -13,7 +13,7 @@
 
 | ID | Функция | Механизм |
 |----|---------|----------|
-| FR-WAF-1 | Весь трафик к бэкенду проходит WAF | Gateway API → HTTPRoute → `Service waf` (в k8s); в Compose — порт `webserver` закрыт |
+| FR-WAF-1 | Весь трафик (бэкенд И фронтенд) проходит WAF | единая точка входа: Gateway API → HTTPRoute → `Service waf`; WAF маршрутизирует по path (`map $uri $waf_upstream`): `/api`, `/admin`, `/storage` и т.д. → бэкенд, остальное → фронтенд; внешних портов у приложений нет |
 | FR-WAF-2 | OWASP CRS (paranoia 1, блокирующий режим) | env контейнера (`MODSEC_RULE_ENGINE=On`) |
 | FR-WAF-3 | Блокировка сканеров/ботнетов по `User-Agent` | правило `1000001` + `scanners-botnets.data` |
 | FR-WAF-4 | L7-DDoS защита статики | nginx `limit_req` (30 r/s + burst 60 → HTTP 429) |
@@ -42,6 +42,7 @@ kubectl logs -n full-proj deploy/waf | grep '"ruleId"'
 ## 3. Ограничения / роадмап
 
 1. TLS не настроен (самоподписанный сертификат образа) — для продакшена cert-manager.
-2. Frontend `:30560` не за WAF (его API-трафик на `:30080` — за WAF).
-3. Пороги (`rate`, `burst`, аномалии) подобраны под демонстрацию; для прода
+2. Пороги (`rate`, `burst`, аномалии) подобраны под демонстрацию; для прода
    нужен профиль реального трафика.
+3. В Docker Compose-контуре фронтенд отдаётся напрямую (`:3000`) — вариант A
+   (единая точка входа) реализован в Kubernetes-контуре; Compose — локальная разработка.

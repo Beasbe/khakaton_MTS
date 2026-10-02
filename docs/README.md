@@ -28,12 +28,19 @@
 flowchart LR
     U[Пользователь] -->|:30080 NodePort| G[Traefik v3 Gateway API]
     G -->|HTTPRoute| WAF[WAF: ModSecurity + OWASP CRS]
-    WAF -->|reverse proxy| NX[nginx + Laravel php-fpm]
+    WAF -->|"/api /admin /storage"| NX[nginx + Laravel php-fpm]
+    WAF -->|"/ фронтенд"| FE[Next.js ClusterIP]
     NX --> DB[(MySQL + PVC)]
-    FE[Next.js :30560] -.->|API :30080| G
     NX -->|:9113 stub_status| P[Prometheus + node-exporter + kube-state-metrics]
     NX -.->|stdout access-log| FB[Fluent Bit DaemonSet] --> L[(Loki)]
+    FE -.->|stdout access-log| FB
 ```
+
+**Единая точка входа (вариант A):** весь HTTP-трафик (и фронтенд, и бэкенд) проходит
+через Gateway API → WAF. WAF инспектирует ModSecurity+CRS каждый запрос и сам
+маршрутизирует по пути: `/api`, `/admin`, `/storage`, `/sanctum`, `/livewire`,
+`/filament`, `/css`, `/js`, `/vendor` → бэкенд; всё остальное (включая `/api/contact`)
+→ фронтенд. Отдельного внешнего порта у фронтенда нет — обойти WAF нельзя.
 
 Все компоненты — в кластере **k3s v1.36.5** (Ubuntu 24.04.5 LTS),
 развёртывание одной командой `./scripts/deploy.sh` (Helm-чарты из OCI ghcr.io).

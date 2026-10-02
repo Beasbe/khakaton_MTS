@@ -47,6 +47,6 @@ kubectl logs -n full-proj deploy/nginx --tail=5           # access-логи
 
 ## 4. Ограничения
 
-- Frontend-контейнер Next.js использует standalone-сборку; доступ к нему в K8s —
-  через NodePort `30560` / Ingress (SPEC-03).
+- Frontend-контейнер Next.js использует standalone-сборку; доступ к нему —
+  только через Gateway API → WAF (вариант A), отдельного внешнего порта нет.
 - В K8s-контуре порт `backend` не публикуется наружу — весь трафик идёт через `nginx`.

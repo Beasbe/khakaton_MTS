@@ -25,15 +25,14 @@ backend:
     DB_PORT: "3306"
     DB_DATABASE: laravel_dev
     DB_USERNAME: laravel
-    # Разрешённые Origin для CORS (домены фронтенда и гейтвея)
-    CORS_ALLOWED_ORIGINS: "http://localhost:30560,http://localhost:30080"
+    # Разрешённые Origin для CORS: фронтенд теперь за тем же Gateway :30080
+    CORS_ALLOWED_ORIGINS: "http://localhost:30080"
 
 frontend:
   replicas: 1
   port: 3000
-  nodePort: 30560
-  # Адрес API бэкенда. NEXT_PUBLIC_API_URL вшивается во фронтенд на этапе
-  # сборки образа (build-arg), это значение - переопределение для рантайма.
+  # Внешнего NodePort нет: фронтенд доступен ТОЛЬКО через Gateway API :30080 -> WAF
+  # (вариант A). NEXT_PUBLIC_API_URL вшивается при сборке образа.
   apiUrl: "http://localhost:30080"
   resources:
     requests:
@@ -68,8 +67,17 @@ waf:
   # Для локального registry: --set waf.image=localhost:5000/full-proj/waf:latest
   image: owasp/modsecurity-crs:nginx-alpine
   port: 8080
-  backend: "http://nginx:80"
+  backendService: "nginx"
+  backendPort: 80
+  # Фронтенд тоже за WAF (вариант A: единая точка входа, роутинг по path)
+  frontendService: "frontend"
+  frontendPort: 3000
   serverName: "localhost"
+  # Пробрасывать оригинальный Host (с портом) и оригинальный порт клиента.
+  # nginx $host режет порт, а $server_port WAF = 8080, из-за чего приложение
+  # генерировало URL вида http://localhost:8080 (неверно при доступе через Gateway).
+  proxyHostHeader: "$http_host"
+  nginxForwardedPort: "$http_x_forwarded_port"
   # ModSecurity: On = блокирующий режим; DetectionOnly = только логировать
   modsecRuleEngine: "On"
   paranoia: "1"

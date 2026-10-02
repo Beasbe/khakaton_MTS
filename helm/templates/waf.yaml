@@ -88,8 +88,10 @@ metadata:
   name: waf-nginx-template
   namespace: {{ .Values.namespace }}
 data:
-  # Содержимое повторяет waf/nginx/default.conf.template
-  # (limit_req на статику -> HTTP 429 при превышении 30 r/s, burst 60)
+  # Единая точка входа (вариант A): WAF инспектирует ВЕСЬ трафик и сам
+  # маршрутизирует по пути: /api, /admin, /storage, /sanctum, /livewire, /filament
+  # -> бэкенд (nginx+Laravel), всё остальное (включая /api/contact) -> фронтенд.
+  # Первое совпадение в map побеждает. limit_req на статику -> HTTP 429.
   default.conf.template: |
     limit_req_zone $binary_remote_addr zone=static_per_ip:10m rate=30r/s;
 
@@ -102,6 +104,26 @@ data:
         '' close;
     }
 
+    # Выбор upstream по пути (первое совпадение побеждает).
+    # По умолчанию весь трафик идёт на фронтенд — он тоже за WAF.
+    # Ассеты админки (/css, /js, /vendor, /storage) отдаёт Laravel.
+    map $uri $waf_upstream {
+        default        ${FRONTEND_BACKEND};
+        ~^/api/contact ${FRONTEND_BACKEND};
+        ~^/api/        ${BACKEND};
+        ~^/admin       ${BACKEND};
+        ~^/storage/    ${BACKEND};
+        ~^/sanctum/    ${BACKEND};
+        ~^/livewire/   ${BACKEND};
+        ~^/filament/   ${BACKEND};
+        ~^/css/        ${BACKEND};
+        ~^/js/         ${BACKEND};
+        ~^/vendor/     ${BACKEND};
+    }
+
+    # resolver уже задан образом в http-контексте (91-update-resolver.sh
+    # берёт nameserver из /etc/resolv.conf — в k8s это CoreDNS).
+
     server {
         listen ${PORT} default_server;
 
@@ -110,11 +132,20 @@ data:
 
         PROXY_SSL_CONFIG
 
+        # Статика любого приложения: рейт-лимит + роутинг по map
         location ~* \.(?:css|js|mjs|map|png|jpe?g|gif|svg|webp|avif|ico|bmp|woff2?|ttf|eot|otf|mp4|webm|ogg|mp3|pdf)$ {
             limit_req zone=static_per_ip burst=60 nodelay;
             limit_req_status 429;
             limit_req_log_level warn;
-            include includes/proxy_backend.conf;
+            proxy_http_version 1.1;
+            proxy_set_header Host ${PROXY_HOST_HEADER};
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto ${NGINX_X_FORWARDED_PROTO};
+            proxy_set_header X-Forwarded-Port ${NGINX_X_FORWARDED_PORT};
+            proxy_pass $waf_upstream;
         }
 
         location / {
@@ -124,13 +155,21 @@ data:
                 return 301 https://$host$request_uri;
             }
 
-            include includes/cors.conf;
-            include includes/proxy_backend.conf;
-
-            index index.html index.htm;
-            root /usr/share/nginx/html;
+            proxy_http_version 1.1;
+            proxy_set_header Host ${PROXY_HOST_HEADER};
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto ${NGINX_X_FORWARDED_PROTO};
+            proxy_set_header X-Forwarded-Port ${NGINX_X_FORWARDED_PORT};
+            proxy_buffering off;
+            proxy_connect_timeout 60s;
+            proxy_read_timeout 36000s;
+            proxy_pass $waf_upstream;
         }
 
+        # /healthz, /metrics/nginx (stub_status) и 50x-страница из образа
         include includes/location_common.conf;
     }
 ---
@@ -162,12 +201,21 @@ spec:
               memory: {{ .Values.waf.resources.limits.memory }}
               cpu: {{ .Values.waf.resources.limits.cpu }}
           env:
+            # FQDN обязателен: переменный proxy_pass резолвится через nginx resolver,
+            # который не раскрывает search-домены из resolv.conf.
             - name: BACKEND
-              value: {{ .Values.waf.backend }}
+              value: "http://{{ .Values.waf.backendService }}.{{ $.Values.namespace }}.svc.cluster.local:{{ .Values.waf.backendPort }}"
+            - name: FRONTEND_BACKEND
+              value: "http://{{ .Values.waf.frontendService }}.{{ $.Values.namespace }}.svc.cluster.local:{{ .Values.waf.frontendPort }}"
             - name: PORT
               value: {{ .Values.waf.port | quote }}
             - name: SERVER_NAME
               value: {{ .Values.waf.serverName }}
+            # Не подменять Host/порт на собственные (см. waf.proxyHostHeader в values)
+            - name: PROXY_HOST_HEADER
+              value: {{ .Values.waf.proxyHostHeader | quote }}
+            - name: NGINX_X_FORWARDED_PORT
+              value: {{ .Values.waf.nginxForwardedPort | quote }}
             # ModSecurity: On (блокирующий режим) / DetectionOnly (только логи)
             - name: MODSEC_RULE_ENGINE
               value: {{ .Values.waf.modsecRuleEngine | quote }}

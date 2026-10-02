@@ -48,6 +48,15 @@ cp local-secrets.example.yaml local-secrets.yaml   # заполнить APP_KEY 
 > ⚠️ Если на машине включён VPN с перехватом DNS/подсетей — отключите его
 > (конфликт с сервисной сетью k3s, см. SPEC-01).
 
+После развёртывания (вариант A — единая точка входа, весь трафик через WAF):
+
+| Сервис | URL | Описание |
+|---|---|---|
+| Фронтенд | `http://localhost:30080/` | Next.js (за Gateway API + WAF) |
+| Бэкенд | `http://localhost:30080/api`, `/admin`, `/storage` | nginx → Laravel (за WAF) |
+| Админ-панель | `http://localhost:30080/admin` | Filament CMS |
+| API | `http://localhost:30080/api` | JSON-эндпоинты |
+
 ## Быстрый старт (Docker Compose)
 
 ```bash

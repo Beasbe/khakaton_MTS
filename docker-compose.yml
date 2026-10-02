@@ -63,6 +63,10 @@ services:
       BACKEND: "http://webserver:80"
       PORT: "8080"
       SERVER_NAME: "localhost"
+      # Не подменять Host/порт на собственные: nginx $host режет порт, а
+      # $server_port WAF = 8080 — приложение должно видеть оригинальный Host.
+      PROXY_HOST_HEADER: "$http_host"
+      NGINX_X_FORWARDED_PORT: "$http_x_forwarded_port"
       # ModSecurity engine: On (blocking). Set to DetectionOnly to only log.
       MODSEC_RULE_ENGINE: "On"
       # OWASP CRS paranoia levels (1 = default / least false positives)

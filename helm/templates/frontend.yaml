@@ -72,5 +72,6 @@ spec:
   ports:
     - port: {{ .Values.frontend.port }}
       targetPort: {{ .Values.frontend.port }}
-      nodePort: {{ .Values.frontend.nodePort }}
-  type: NodePort
+  # ClusterIP: фронтенд доступен только через Gateway API -> WAF (вариант A),
+  # чтобы трафик не мог обойти WAF.
+  type: ClusterIP

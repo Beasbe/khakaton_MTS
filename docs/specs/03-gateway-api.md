@@ -26,7 +26,12 @@
 
 ## 2. Реализация
 
-Топология: `Клиент → :30080 (NodePort) → Traefik (Gateway API) → HTTPRoute → Service waf → WAF → Service nginx → php-fpm`.
+Топология (вариант A — единая точка входа):
+`Клиент → :30080 (NodePort) → Traefik (Gateway API) → HTTPRoute → Service waf`,
+далее WAF сам маршрутизирует по пути: `/api`, `/admin`, `/storage`, `/sanctum`,
+`/livewire`, `/filament`, `/css`, `/js`, `/vendor` → Service nginx → php-fpm;
+всё остальное (фронтенд, `/api/contact`) → Service frontend. Оба приложения
+доступны только через WAF — внешних NodePort у них нет.
 
 - **GatewayClass** `traefik` (controllerName `traefik.io/gateway-controller`) — создаётся
   Traefik-чартом при `providers.kubernetesGateway.enabled: true` (`infra/traefik/values.yaml`).
@@ -40,13 +45,16 @@
 
 ```bash
 kubectl get gatewayclass,gateway,httproute -n full-proj
-# GatewayClass traefik; Gateway full-proj-gateway: PROGRAMMED=True, Address: 10.4.17.209
+# GatewayClass traefik; Gateway full-proj-gateway: PROGRAMMED=True, Address: <node-ip>
 
-curl -s http://localhost:30080/api/news | head -c 200
+curl -s http://localhost:30080/api/news | head -c 200   # бэкенд через WAF
 # {"success":true,"data":[{"id":1,"slug":"zapusk-novogo-sajta",...}]}
 
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost:30080/        # 200
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:30080/        # 200 (фронтенд через WAF)
 ```
+
+> ⚠️ ВНИМАНИЕ: при работе на ноутбуке со сменой Wi-Fi требуется
+> `sudo systemctl restart k3s` для перерегистрации IP ноды (см. serial.md).
 
 ## 4. Дополнительные возможности (роадмап)
 
