@@ -47,6 +47,8 @@ cp local-secrets.example.yaml local-secrets.yaml   # заполнить APP_KEY 
 
 > ⚠️ Если на машине включён VPN с перехватом DNS/подсетей — отключите его
 > (конфликт с сервисной сетью k3s, см. SPEC-01).
+> После смены Wi-Fi/сети выполните `sudo systemctl restart k3s` — нода должна
+> перерегистрироваться с актуальным IP, иначе Gateway API и мониторинг не работают.
 
 После развёртывания (вариант A — единая точка входа, весь трафик через WAF):
 
@@ -70,6 +72,44 @@ chmod +x setup.sh && ./setup.sh
 | Бэкенд (через WAF) | `http://localhost:8080` | nginx → Laravel |
 | Админ-панель | `http://localhost:8080/admin` | Filament CMS |
 | API | `http://localhost:8080/api` | JSON-эндпоинты |
+
+---
+
+## Эндпоинты и доступ к сервисам (k8s)
+
+### Через Gateway API :30080 (единая точка входа, всё за WAF)
+
+| Сервис | URL | Что вернёт |
+|---|---|---|
+| Фронтенд | `http://localhost:30080/` | страницы Next.js (лента, проекты, контакты) |
+| API — новости | `http://localhost:30080/api/news` | `{"success":true,"data":[...]}` |
+| API — проекты | `http://localhost:30080/api/projects` | JSON со списком проектов |
+| Админ-панель | `http://localhost:30080/admin` | Filament CMS (логин `admin/login`) |
+| Хранилище | `http://localhost:30080/storage/...` | загруженные файлы |
+| Healthcheck WAF | `http://localhost:30080/healthz` | `OK` (отвечает сам WAF, не проксируется) |
+| Метрики WAF | `http://localhost:30080/metrics/nginx` | stub_status nginx WAF; по умолчанию **403** — открывается через `METRICS_ALLOW_FROM` (env пода waf) |
+
+Создание пользователя для админки (интерактивно — имя, email, пароль):
+
+```bash
+kubectl exec -it -n full-proj deploy/backend -c backend -- php artisan make:filament-user
+```
+
+### Внутренние сервисы (вход по желанию через port-forward)
+
+Все сервисы ниже — ClusterIP (снаружи не доступны). Для входа пробросьте порт:
+
+| Сервис | Команда | URL после проброса | Примечание |
+|---|---|---|---|
+| Prometheus UI | `kubectl port-forward -n monitoring svc/prometheus-server 9090:80` | `http://localhost:9090` | Graph: `up`, `nginx_http_requests_total`, `node_memory_MemAvailable_bytes` |
+| Prometheus API | (тот же проброс) | `http://localhost:9090/api/v1/query?query=up` | программные запросы |
+| Loki (логи) | `kubectl port-forward -n logging svc/loki 3100:3100` | `http://localhost:3100` | API: `/loki/api/v1/query_range`; liveness `/ready`; метрики `/metrics` |
+| Fluent Bit | `kubectl port-forward -n logging pod/$(kubectl get pods -n logging -l app.kubernetes.io/name=fluent-bit -o name \| head -1 \| cut -d/ -f2) 2020:2020` | `http://localhost:2020/api/v1/metrics/prometheus` | метрики самого сборщика |
+| Traefik API (диагностика) | `kubectl port-forward -n traefik deploy/traefik 8080:8080` | `http://localhost:8080/api/http/routers` | список роутеров/бэкендов Gateway API |
+| MySQL | `kubectl port-forward -n full-proj svc/mysql 3306:3306` | `localhost:3306` | пароль в Secret `app-secrets` (только при необходимости) |
+| WAF напрямую (диагностика) | `kubectl port-forward -n full-proj svc/waf 8081:8080` | `http://localhost:8081` | в обход Gateway — проверить WAF отдельно |
+| nginx бэкенда напрямую | `kubectl port-forward -n full-proj svc/nginx 8082:80` | `http://localhost:8082` | в обход WAF (диагностика) |
+| node-exporter | `kubectl port-forward -n monitoring pod/$(kubectl get pods -n monitoring -l app=prometheus-node-exporter -o name \| head -1 \| cut -d/ -f2) 9100:9100` | `http://localhost:9100/metrics` | метрики узла (CPU/RAM/диск) |
 
 ---
 
