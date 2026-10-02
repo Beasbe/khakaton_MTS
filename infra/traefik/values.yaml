@@ -36,3 +36,7 @@ resources:
   limits:
     memory: "256Mi"
     cpu: "500m"
+
+# API для диагностики (внутренний entrypoint :8080, наружу не опубликован)
+api:
+  insecure: true

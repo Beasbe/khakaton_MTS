@@ -116,6 +116,7 @@ data:
         ~^/sanctum/    ${BACKEND};
         ~^/livewire/   ${BACKEND};
         ~^/filament/   ${BACKEND};
+        ~^/favicon.ico ${BACKEND};
         ~^/css/        ${BACKEND};
         ~^/js/         ${BACKEND};
         ~^/vendor/     ${BACKEND};
