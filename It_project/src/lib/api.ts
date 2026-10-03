@@ -1,6 +1,19 @@
 import { NewsItem, ApiResponse, NewsItemResponse } from "@/types";
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+// Публичный URL бэкенда для браузера (вшивается при сборке через NEXT_PUBLIC_API_URL)
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
+// Внутренний URL бэкенда для серверных запросов (SSR): из контейнера фронтенда
+// localhost:<NodePort> недоступен — сервер ходит напрямую в Service waf (вариант A).
+const INTERNAL_API_BASE_URL =
+  process.env.BACKEND_INTERNAL_API_URL || process.env.API_URL || "";
 const API_TIMEOUT = 5000;
+
+// На сервере (SSR) — внутренний адрес, в браузере — публичный.
+function apiBaseUrl(): string {
+  if (typeof window === "undefined" && INTERNAL_API_BASE_URL) {
+    return INTERNAL_API_BASE_URL;
+  }
+  return API_BASE_URL;
+}
 
 async function fetchWithTimeout(
   url: string,
@@ -45,7 +58,7 @@ export async function getNewsFromBackend(params?: {
       queryParams.append("per_page", params.per_page.toString());
 
     const queryString = queryParams.toString();
-    const url = `${API_BASE_URL}/api/news${queryString ? `?${queryString}` : ""}`;
+    const url = `${apiBaseUrl()}/api/news${queryString ? `?${queryString}` : ""}`;
 
     const response = await fetchWithTimeout(url);
 
@@ -95,7 +108,7 @@ export async function getNewsItemFromBackend(
   slug: string,
 ): Promise<NewsItemResponse | null> {
   try {
-    const response = await fetchWithTimeout(`${API_BASE_URL}/api/news/${slug}`);
+    const response = await fetchWithTimeout(`${apiBaseUrl()}/api/news/${slug}`);
 
     if (!response.ok) {
       if (response.status === 404) return null;
@@ -173,7 +186,7 @@ export async function getNewsItemFromBackend(
 export async function getNewsCategoriesFromBackend(): Promise<string[]> {
   try {
     const response = await fetchWithTimeout(
-      `${API_BASE_URL}/api/news/categories`,
+      `${apiBaseUrl()}/api/news/categories`,
     );
 
     if (!response.ok) {
@@ -195,7 +208,7 @@ export async function getNewsCategoriesFromBackend(): Promise<string[]> {
 
 export async function getNewsYearsFromBackend(): Promise<number[]> {
   try {
-    const response = await fetchWithTimeout(`${API_BASE_URL}/api/news/years`);
+    const response = await fetchWithTimeout(`${apiBaseUrl()}/api/news/years`);
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -219,7 +232,7 @@ export async function getLatestNewsFromBackend(
 ): Promise<NewsItem[]> {
   try {
     const response = await fetchWithTimeout(
-      `${API_BASE_URL}/api/news/latest/${limit}`,
+      `${apiBaseUrl()}/api/news/latest/${limit}`,
     );
 
     if (!response.ok) {
@@ -255,7 +268,7 @@ export async function getLatestNewsFromBackend(
 export async function checkBackendAvailability(): Promise<boolean> {
   try {
     const response = await fetchWithTimeout(
-      `${API_BASE_URL}/api/news/latest/1`,
+      `${apiBaseUrl()}/api/news/latest/1`,
       {},
       3000,
     );

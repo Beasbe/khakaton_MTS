@@ -1,7 +1,20 @@
 // src/lib/apiProjects.ts
 import { ProjectItem, ApiResponse, ProjectItemResponse } from "@/types";
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+// Публичный URL бэкенда для браузера (вшивается при сборке через NEXT_PUBLIC_API_URL)
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
+// Внутренний URL бэкенда для серверных запросов (SSR): из контейнера фронтенда
+// localhost:<NodePort> недоступен — сервер ходит напрямую в Service waf (вариант A).
+const INTERNAL_API_BASE_URL =
+  process.env.BACKEND_INTERNAL_API_URL || process.env.API_URL || "";
 const API_TIMEOUT = 5000;
+
+// На сервере (SSR) — внутренний адрес, в браузере — публичный.
+function apiBaseUrl(): string {
+  if (typeof window === "undefined" && INTERNAL_API_BASE_URL) {
+    return INTERNAL_API_BASE_URL;
+  }
+  return API_BASE_URL;
+}
 
 // Универсальная функция fetch с таймаутом
 async function fetchWithTimeout(
@@ -53,7 +66,7 @@ export async function getProjectsFromBackend(params?: {
       queryParams.append("per_page", params.per_page.toString());
 
     const queryString = queryParams.toString();
-    const url = `${API_BASE_URL}/api/projects${queryString ? `?${queryString}` : ""}`;
+    const url = `${apiBaseUrl()}/api/projects${queryString ? `?${queryString}` : ""}`;
 
     const response = await fetchWithTimeout(url);
 
@@ -110,7 +123,7 @@ export async function getProjectItemFromBackend(
 ): Promise<ProjectItemResponse | null> {
   try {
     const response = await fetchWithTimeout(
-      `${API_BASE_URL}/api/projects/${slug}`,
+      `${apiBaseUrl()}/api/projects/${slug}`,
     );
 
     if (!response.ok) {
@@ -183,7 +196,7 @@ export async function getProjectItemFromBackend(
 export async function getProjectCategoriesFromBackend(): Promise<string[]> {
   try {
     const response = await fetchWithTimeout(
-      `${API_BASE_URL}/api/projects/categories`,
+      `${apiBaseUrl()}/api/projects/categories`,
     );
 
     if (!response.ok) {
@@ -209,7 +222,7 @@ export async function getProjectCategoriesFromBackend(): Promise<string[]> {
 export async function getProjectYearsFromBackend(): Promise<number[]> {
   try {
     const response = await fetchWithTimeout(
-      `${API_BASE_URL}/api/projects/years`,
+      `${apiBaseUrl()}/api/projects/years`,
     );
 
     if (!response.ok) {
@@ -237,7 +250,7 @@ export async function getFeaturedProjectsFromBackend(
 ): Promise<ProjectItem[]> {
   try {
     const response = await fetchWithTimeout(
-      `${API_BASE_URL}/api/projects/featured/${limit}`,
+      `${apiBaseUrl()}/api/projects/featured/${limit}`,
     );
 
     if (!response.ok) {
@@ -286,7 +299,7 @@ export async function getProjectsByCategoryFromBackend(
 ): Promise<ProjectItem[]> {
   try {
     const response = await fetchWithTimeout(
-      `${API_BASE_URL}/api/projects/category/${category}/${limit}`,
+      `${apiBaseUrl()}/api/projects/category/${category}/${limit}`,
     );
 
     if (!response.ok) {
@@ -335,7 +348,7 @@ export async function getProjectsByCategoryFromBackend(
 export async function checkBackendAvailability(): Promise<boolean> {
   try {
     const response = await fetchWithTimeout(
-      `${API_BASE_URL}/api/projects/featured/1`,
+      `${apiBaseUrl()}/api/projects/featured/1`,
       {},
       3000,
     );

@@ -111,6 +111,9 @@ services:
       - waf
     environment:
       - NODE_ENV=production
+      # SSR-запросы из контейнера фронтенда идут через WAF (та же точка входа,
+      # что и для браузера) — внутри сети контейнеров localhost:8080 недоступен.
+      - BACKEND_INTERNAL_API_URL=http://waf:8080
 
 networks:
   laravel-network:

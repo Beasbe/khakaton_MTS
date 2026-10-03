@@ -34,6 +34,9 @@ frontend:
   # Внешнего NodePort нет: фронтенд доступен ТОЛЬКО через Gateway API :30080 -> WAF
   # (вариант A). NEXT_PUBLIC_API_URL вшивается при сборке образа.
   apiUrl: "http://localhost:30080"
+  # Внутрикластерный адрес для SSR-запросов (server components): из пода
+  # localhost:30080 недоступен — сервер ходит напрямую в Service waf (вариант A).
+  internalApiUrl: "http://waf.full-proj.svc.cluster.local:8080"
   resources:
     requests:
       memory: "128Mi"

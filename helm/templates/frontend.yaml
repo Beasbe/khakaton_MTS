@@ -30,6 +30,9 @@ spec:
           env:
             - name: NEXT_PUBLIC_API_URL
               value: {{ .Values.frontend.apiUrl }}
+            # Внутрикластерный URL бэкенда для SSR-запросов (server components)
+            - name: BACKEND_INTERNAL_API_URL
+              value: {{ .Values.frontend.internalApiUrl }}
             - name: SMTP_HOST
               valueFrom:
                 secretKeyRef:
