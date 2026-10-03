@@ -45,42 +45,32 @@ CHART_TRAEFIK="${CHART_TRAEFIK:-oci://ghcr.io/traefik/helm/traefik}"
 CHART_LOKI="${CHART_LOKI:-oci://ghcr.io/grafana/helm-charts/loki}"
 CHART_FLUENT_BIT="${CHART_FLUENT_BIT:-oci://ghcr.io/fluent/helm-charts/fluent-bit}"
 CHART_GRAFANA="${CHART_GRAFANA:-oci://ghcr.io/grafana/helm-charts/grafana}"
+CHART_ARGOCD="${CHART_ARGOCD:-oci://ghcr.io/argoproj/argo-helm/argo-cd}"
 
-echo "==> 1/6 Gateway API: CRD v${GATEWAY_API_VERSION} (GatewayClass создаст Traefik-чарт)..."
+echo "==> 1/7 Gateway API: CRD v${GATEWAY_API_VERSION} (GatewayClass создаст Traefik-чарт)..."
 kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml"
 
-echo "==> 2/6 Traefik v3 (реализация Gateway API, NodePort 30080 HTTP + 30443 HTTPS)..."
+echo "==> 2/7 Traefik v3 (реализация Gateway API, NodePort 30080 HTTP + 30443 HTTPS)..."
 helm upgrade --install traefik "${CHART_TRAEFIK}" \
   -n traefik --create-namespace \
   -f infra/traefik/values.yaml
 
-echo "==> 3/6 TLS-сертификат + приложение (WAF + Gateway + HTTPRoute + backend + frontend + mysql)..."
+echo "==> 3/7 TLS-сертификат + секреты приложения (само приложение разворачивает Argo CD)..."
 ./scripts/gen-cert.sh
 echo
+# GitOps: приложение full-proj управляется Argo CD из ветки main
+# (argocd/application.yaml). Здесь готовим только то, что живёт ВНЕ git:
+#  * Secret app-secrets — рендерится шаблоном чарта из local-secrets.yaml;
+#  * TLS-секрет full-proj-tls — создан gen-cert.sh выше.
+kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+helm template full-proj ./helm -f "${SECRETS_FILE}" -s templates/secrets.yaml | kubectl apply -f -
 
-# Разблокировка залипшего релиза: если прошлый helm upgrade был прерван,
-# остаётся release-secret со status=pending-upgrade — helm тогда падает с
-# "another operation (install/upgrade/rollback) is in progress". Удаляем
-# ТОЛЬКО pending-секрет (история и текущий релиз не трогаются).
-PENDING_RELEASE=$(kubectl get secrets -n "${NAMESPACE}" -l owner=helm -l status=pending-upgrade -o name 2>/dev/null || true)
-if [ -n "${PENDING_RELEASE}" ]; then
-  echo "==> Helm: удаляю залипший pending-release (${PENDING_RELEASE})..."
-  kubectl delete ${PENDING_RELEASE} -n "${NAMESPACE}" || true
-fi
-
-helm upgrade --install full-proj ./helm \
-  -n "${NAMESPACE}" --create-namespace \
-  --set registry="${REGISTRY}" \
-  --set image.tag=latest \
-  --set waf.image="${REGISTRY}/waf:latest" \
-  -f "${SECRETS_FILE}"
-
-echo "==> 4/6 Мониторинг: Prometheus (с node-exporter и kube-state-metrics из чарта)..."
+echo "==> 4/7 Мониторинг: Prometheus (с node-exporter и kube-state-metrics из чарта)..."
 helm upgrade --install prometheus "${CHART_PROMETHEUS}" \
   -n monitoring --create-namespace \
   -f infra/prometheus/values.yaml
 
-echo "==> 5/6 Grafana (дашборды Prometheus + Loki, NodePort 30300)..."
+echo "==> 5/7 Grafana (дашборды Prometheus + Loki, NodePort 30300)..."
 kubectl create configmap grafana-dashboards -n monitoring \
   --from-file=infra/grafana/dashboards \
   --dry-run=client -o yaml | kubectl apply -f - >/dev/null
@@ -89,13 +79,24 @@ helm upgrade --install grafana "${CHART_GRAFANA}" \
   -f infra/grafana/values.yaml \
   --set adminPassword="${GRAFANA_ADMIN_PASSWORD:-admin}"
 
-echo "==> 6/6 Логирование: Loki + Fluent Bit..."
+echo "==> 6/7 Логирование: Loki + Fluent Bit..."
 helm upgrade --install loki "${CHART_LOKI}" \
   -n logging --create-namespace \
   -f infra/logging/loki-values.yaml
 helm upgrade --install fluent-bit "${CHART_FLUENT_BIT}" \
   -n logging \
   -f infra/logging/fluentbit-values.yaml
+
+echo "==> 7/7 GitOps: Argo CD + Application full-proj (из ветки main репозитория)..."
+helm upgrade --install argocd "${CHART_ARGOCD}" \
+  -n argocd --create-namespace \
+  -f infra/argocd/values.yaml
+kubectl apply -f argocd/application.yaml
+kubectl rollout status deployment argocd-server -n argocd --timeout=300s || true
+echo "==> Ожидание первого sync'а Argo CD (rollout приложения)..."
+for d in backend frontend waf mysql; do
+  kubectl rollout status deployment/${d} -n "${NAMESPACE}" --timeout=600s || true
+done
 
 echo ""
 echo "============================================================"
@@ -104,8 +105,7 @@ echo ""
 echo "  kubectl get pods -n ${NAMESPACE}"
 echo "  kubectl get gateway,httproute -n ${NAMESPACE}"
 echo ""
-# приложение через Gateway API: HTTP :30080 -> 302 на HTTPS :30443 -> WAF
-curl -s -o /dev/null -w '%{http_code} -> %{redirect_url}\n' http://localhost:30080/api/news
+# приложение: GitOps (Argo CD) — сверка с репозиторием в http://<node-ip>:30444
 curl -sk https://localhost:30443/api/news | head -c 300
 
 # Grafana (метрики + логи): http://<node-ip>:30300 (admin / GRAFANA_ADMIN_PASSWORD)

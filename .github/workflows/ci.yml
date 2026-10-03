@@ -32,8 +32,22 @@ jobs:
       - name: Helm lint (чарт приложения)
         run: helm lint helm
 
+  # DevSecOps: сканирование секретов во всей истории (gitleaks)
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (полная история)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks — поиск секретов/утечек
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   build:
-    needs: checks
+    needs: [checks, secrets]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

@@ -1,0 +1,41 @@
+# Argo CD Application: приложение full-proj разворачивается ИЗ ЭТОГО репозитория.
+# Argo CD непрерывно сверяет кластер с git (selfHeal: любое ручное изменение
+# в кластере откатывается к состоянию из репозитория; prune: лишние ресурсы
+# удаляются). Источник истины — ветка main, чарт helm/.
+#
+# Секреты в git не попадают: Secret app-secrets создаётся вне git (deploy.sh
+# из local-secrets.yaml), чарт при secrets.existingSecret=true его не трогает.
+# TLS-секрет full-proj-tls — тоже кластерный (scripts/gen-cert.sh).
+#
+# image.tag = git SHA коммита, из которого собраны образы (CI: ci.yml ->
+# ghcr.io/beasbe/khakaton_mts/*:<sha>). Чтобы выкатить новый код, обновите tag
+# на SHA нового коммита и запушьте — Argo CD сам перекатит поды.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: full-proj
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Beasbe/khakaton_MTS.git
+    targetRevision: main
+    path: helm
+    helm:
+      values: |
+        registry: ghcr.io/beasbe/khakaton_mts
+        image:
+          tag: 1c087eab988975c68f53a043046a76b10ae7855b
+        secrets:
+          existingSecret: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: full-proj
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -69,9 +69,9 @@ mysql:
 # на бэкенд: Gateway API -> HTTPRoute -> Service waf -> Service nginx -> backend.
 waf:
   replicas: 1
-  # Образ по умолчанию — публичный owasp/modsecurity-crs:nginx-alpine.
+  # Образ зафиксирован по диджесту (воспроизводимость, DevSecOps).
   # Для локального registry: --set waf.image=localhost:5000/full-proj/waf:latest
-  image: owasp/modsecurity-crs:nginx-alpine
+  image: owasp/modsecurity-crs:nginx-alpine@sha256:98a682cf6825f24b7a186c2401dc38c08ee7d68574dbd853e60a29db49c1ce2a
   port: 8080
   backendService: "nginx"
   backendPort: 80
@@ -115,6 +115,9 @@ gateway:
   tlsSecret: full-proj-tls
 
 secrets:
+  # GitOps (Argo CD): Secret app-secrets создаётся вне git (deploy.sh из
+  # local-secrets.yaml), чарт его не трогает. Вне GitOps (helm CLI) — false.
+  existingSecret: false
   APP_KEY: ""
   DB_PASSWORD: ""
   SMTP_HOST: ""

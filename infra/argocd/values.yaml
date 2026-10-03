@@ -1,0 +1,64 @@
+# Argo CD — GitOps-контроллер: сверяет кластер с репозиторием (drift detection
+# + self-heal). Установка (из deploy.sh):
+#   helm upgrade --install argocd oci://ghcr.io/argoproj/argo-helm/argo-cd \
+#     -n argocd --create-namespace -f infra/argocd/values.yaml
+# Доступ: http://<node-ip>:30444 (admin / argocd123, HTTP — стенд без внешнего TLS).
+
+configs:
+  params:
+    # HTTP без TLS (демо-стенд; наружу смотрит NodePort 30444)
+    server.insecure: true
+  secret:
+    # bcrypt-хеш пароля admin = "argocd123" (htpasswd -nbBC 10 "" argocd123)
+    argocdServerAdminPassword: "$2y$10$sDT1k3zj7rdIrNq/EPSf6.clBM/YUWRywVph0ur16z.fayrehu.wG"
+
+server:
+  service:
+    type: NodePort
+    nodePortHttp: 30444
+    nodePortHttps: 30445
+  resources:
+    requests:
+      cpu: 32m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+controller:
+  resources:
+    requests:
+      cpu: 64m
+      memory: 128Mi
+    limits:
+      cpu: 400m
+      memory: 384Mi
+
+repoServer:
+  resources:
+    requests:
+      cpu: 32m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+redis:
+  resources:
+    requests:
+      cpu: 16m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# Лишние компоненты для демо-стенда отключаем (экономия памяти ноутбука):
+# dex (SSO), notifications, applicationset не нужны — логин локальным admin'ом.
+dex:
+  enabled: false
+
+notifications:
+  enabled: false
+
+applicationSet:
+  enabled: false
