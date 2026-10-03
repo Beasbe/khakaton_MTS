@@ -43,6 +43,26 @@ kubectl get nodes   # Ready
 > (перехват порта 53 или подсети сервисов k3s `10.43.0.0/16`), DNS-запросы
 > из подов уходят в туннель и отвечают NXDOMAIN. Для локального стенда VPN
 > нужно отключить (проверено на реальном стенде).
+>
+> **Примечание 3 (ноутбук с нестабильным Wi-Fi/DHCP).** Если адрес Wi-Fi
+> меняется между переподключениями (кампусные сети), k3s регистрирует
+> протухший `INTERNAL-IP`: kube-proxy DNAT'ит `kubernetes`-сервис на
+> исчезнувший IP ноды, мониторинг падает (`no route to host` к `10.43.0.1`,
+> liveness node-exporter на старом IP). **Решение:** привязать ноду к
+> стабильному локальному адресу — dummy-интерфейсу через NetworkManager —
+> и передать его в k3s как `--node-ip` (проверено на стенде):
+>
+> ```bash
+> nmcli con add type dummy con-name k3sip0 ifname k3sip0 \
+>   ipv4.addresses 192.168.200.1/32 ipv4.method manual connection.autoconnect yes
+> sudo sed -i "s|'metrics-server' \\\\$|'metrics-server' '--node-ip' '192.168.200.1' \\\\|" \
+>   /etc/systemd/system/k3s.service
+> sudo systemctl daemon-reload && sudo systemctl restart k3s
+> ```
+>
+> После этого `restart k3s` при смене сети НЕ требуется: доступ к приложению
+> остаётся на всех интерфейсах (`localhost:30080`, Wi-Fi IP для других
+> устройств — NodePort слушает `0.0.0.0`).
 
 ### 2.2. Развёртывание решения
 
