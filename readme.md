@@ -58,11 +58,10 @@ cp local-secrets.example.yaml local-secrets.yaml   # заполнить APP_KEY 
 
 | Сервис | URL | Описание |
 |---|---|---|
-| Фронтенд | `http://localhost:30080/` | Next.js (за Gateway API + WAF) |
-| Фронтенд (HTTPS) | `https://localhost:30443/` | тот же маршрут, самоподписанный TLS (предупреждение браузера — ожидаемо) |
-| Бэкенд | `http://localhost:30080/api`, `/admin`, `/storage` | nginx → Laravel (за WAF) |
-| Админ-панель | `http://localhost:30080/admin` | Filament CMS |
-| API | `http://localhost:30080/api` | JSON-эндпоинты |
+| Фронтенд | `https://localhost:30443/` | Next.js (за Gateway API + WAF); `http://localhost:30080/` автоматически редиректит сюда |
+| Бэкенд | `https://localhost:30443/api`, `/admin`, `/storage` | nginx → Laravel (за WAF) |
+| Админ-панель | `https://localhost:30443/admin` | Filament CMS |
+| API | `https://localhost:30443/api` | JSON-эндпоинты |
 | Grafana | `http://localhost:30300` | дашборды метрик и логов (`admin` / `GRAFANA_ADMIN_PASSWORD`, по умолчанию `admin`) |
 
 ## Быстрый старт (Docker Compose)
@@ -134,7 +133,7 @@ kubectl get pods -n monitoring -l app.kubernetes.io/name=kube-state-metrics
 
 | Сервис | Команда | Что смотреть |
 |---|---|---|
-| Приложение + WAF | — | `http://localhost:30080/` (HTTP), `https://localhost:30443/` (HTTPS), `/admin`, `/api` |
+| Приложение + WAF | — | `https://localhost:30443/` (HTTP `:30080` → 302-редирект), `/admin`, `/api` |
 | Grafana | — | `http://localhost:30300` (NodePort): дашборды «Node Overview», «Kubernetes / Application», «WAF & Application logs» |
 | Traefik Dashboard | `kubectl port-forward -n traefik deploy/traefik 8080:8080` | `http://localhost:8080/dashboard/` |
 | Prometheus | `kubectl port-forward -n monitoring svc/prometheus-server 9090:80` | `http://localhost:9090` |
@@ -148,12 +147,12 @@ kubectl get pods -n monitoring -l app.kubernetes.io/name=kube-state-metrics
 ```bash
 # 1. Gateway API + приложение (HTTP и HTTPS)
 kubectl get gateway -n full-proj                    # PROGRAMMED: True (listeners http:80, https:443)
-curl -s http://localhost:30080/api/news | head -c 200   # 200 + JSON
-curl -sk https://localhost:30443/api/news | head -c 200  # 200 + JSON (TLS-terminate на Gateway)
+curl -s -o /dev/null -w '%{http_code} -> %{redirect_url}\n' http://localhost:30080/api/news   # 302 -> https://localhost:30443/...
+curl -sk https://localhost:30443/api/news | head -c 200   # 200 + JSON (TLS-terminate на Gateway)
 
-# 2. WAF: легитимный трафик проходит, атаки блокируются
-./waf/tests/run-tests.sh http://localhost:30080     # 18/18
-python3 waf/tests/ddos_static.py --url http://localhost:30080/favicon.ico  # 429
+# 2. WAF: легитимный трафик проходит, атаки блокируются (по HTTPS)
+./waf/tests/run-tests.sh https://localhost:30443    # 18/18
+python3 waf/tests/ddos_static.py --url https://localhost:30443/favicon.ico --insecure  # 429
 kubectl logs -n full-proj deploy/waf                # audit JSON с ruleId
 
 # 3. Мониторинг (порт-форвард в фоне, в конце — kill %1)
@@ -182,6 +181,11 @@ HTTPS-точка входа `https://<node-ip>:30443`: TLS терминируе�
 предупреждение о недоверенном CA — нажмите «Дополнительно → Перейти»;
 для CLI используйте `curl -k`. WAF инспектирует и HTTPS-трафик (TLS снят до
 WAF). Фронтенд собран с относительными URL — работает по обоим протоколам.
+
+**HTTP → HTTPS:** листенер `http` (:30080) отдаёт `302` на
+`https://<host>:30443/...` (HTTPRoute `full-proj-http-redirect` с фильтром
+`RequestRedirect`); приложение прикреплено только к HTTPS-листенеру, так
+что весь прикладной трафик гарантированно идёт по TLS и через WAF.
 
 ---
 

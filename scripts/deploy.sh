@@ -104,8 +104,8 @@ echo ""
 echo "  kubectl get pods -n ${NAMESPACE}"
 echo "  kubectl get gateway,httproute -n ${NAMESPACE}"
 echo ""
-# приложение через Gateway API (HTTP :30080 и HTTPS :30443 -> WAF):
-curl -s http://localhost:30080/api/news | head -c 300
+# приложение через Gateway API: HTTP :30080 -> 302 на HTTPS :30443 -> WAF
+curl -s -o /dev/null -w '%{http_code} -> %{redirect_url}\n' http://localhost:30080/api/news
 curl -sk https://localhost:30443/api/news | head -c 300
 
 # Grafana (метрики + логи): http://<node-ip>:30300 (admin / GRAFANA_ADMIN_PASSWORD)

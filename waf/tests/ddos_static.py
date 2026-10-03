@@ -18,6 +18,7 @@ Exit code: 0 if the WAF rate-limited the burst (429 seen), 1 otherwise.
 import argparse
 import collections
 import concurrent.futures
+import ssl
 import sys
 import urllib.error
 import urllib.request
@@ -35,6 +36,8 @@ def build_parser():
     p.add_argument("--requests", type=int, default=500, help="total requests to send")
     p.add_argument("--concurrency", type=int, default=50, help="parallel workers")
     p.add_argument("--ua", default=DEFAULT_UA, help="User-Agent header to use")
+    p.add_argument("--insecure", action="store_true",
+                   help="disable TLS certificate verification (self-signed HTTPS)")
     return p
 
 
@@ -43,8 +46,9 @@ def main():
 
     def hit(_):
         req = urllib.request.Request(args.url, headers={"User-Agent": args.ua})
+        ctx = ssl._create_unverified_context() if args.insecure else None
         try:
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
                 return resp.status
         except urllib.error.HTTPError as exc:
             return exc.code

@@ -62,10 +62,10 @@ cp local-secrets.example.yaml local-secrets.yaml   # заполнить APP_KEY 
 
 | Сервис | URL | Доступ |
 |---|---|---|
-| Приложение (фронтенд) | `http://<node-ip>:30080/` | открытый |
+| Приложение (фронтенд) | `https://<node-ip>:30443/` | открытый; `http://<node-ip>:30080/` → 302-редирект на HTTPS |
 | Приложение (HTTPS, самоподписанный TLS) | `https://<node-ip>:30443/` | предупреждение браузера о CA — ожидаемо |
-| Админ-панель Filament | `http://<node-ip>:30080/admin` | пользователь создаётся в CMS |
-| API | `http://<node-ip>:30080/api` | JSON |
+| Админ-панель Filament | `https://<node-ip>:30443/admin` | пользователь создаётся в CMS |
+| API | `https://<node-ip>:30443/api` | JSON |
 | Grafana | `http://<node-ip>:30300` | `admin` / `GRAFANA_ADMIN_PASSWORD` (по умолчанию `admin`) |
 | Prometheus | `kubectl port-forward -n monitoring svc/prometheus-server 9090:80` | `http://localhost:9090` |
 | Loki | `kubectl port-forward -n logging svc/loki 3100:3100` | `http://localhost:3100` |
@@ -83,7 +83,7 @@ cp local-secrets.example.yaml local-secrets.yaml   # заполнить APP_KEY 
 | Требование кейса | Как реализовано | Обоснование | Как проверить |
 |---|---|---|---|
 | Веб-приложение в Kubernetes | Deployments backend(+nginx+exporter)/frontend/mysql, PVC, Secret `app-secrets`, миграции | стандартные ресурсы, минимальный стек | `kubectl get pods -n full-proj`; `curl localhost:30080/api/news` → 200 JSON |
-| Доступ через Gateway API | Traefik v3: GatewayClass + Gateway (:80) + HTTPRoute → Service waf | open-source, без вендор-лока; Gateway API v1.5.1 | `kubectl get gateway -n full-proj` (PROGRAMMED=True); `curl -s localhost:30080/api/news` |
+| Доступ через Gateway API | Traefik v3: GatewayClass + Gateway (HTTP :80 → 302-редирект, HTTPS :443) + HTTPRoute → Service waf | open-source, без вендор-лока; Gateway API v1.5.1 | `kubectl get gateway -n full-proj` (PROGRAMMED=True); `curl -sk https://localhost:30443/api/news` → 200 |
 | Prometheus собирает метрики | prometheus-чарт + node-exporter + kube-state-metrics + sidecar nginx-exporter (аннотации) | метрики и инфраструктуры, и приложения | `kubectl port-forward -n monitoring svc/prometheus-server 9090:80`; `curl localhost:9090/api/v1/query?query=up`; `nginx_http_requests_total` |
 | Fluent Bit собирает логи | DaemonSet Fluent Bit (CRI-парсер) → Loki single-binary | лёгкий сборщик, централизованное хранилище | после `curl` к приложению: Loki API `{namespace="full-proj"}` содержит access-лог |
 | Ubuntu 24.04 | весь стенд развёрнут на Ubuntu 24.04.5 LTS | требование кейса | воспроизведение по `deploy.sh` |

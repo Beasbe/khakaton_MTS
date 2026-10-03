@@ -40,8 +40,11 @@
   `full-proj-tls`); Traefik сопоставляет listeners с entrypoints `web`/`websecure`
   по порту (`ports.web.port: 80`, `ports.websecure.port: 443`).
 - **HTTPRoute** `full-proj-route`: `PathPrefix /` → backendRef `waf:8080`, прикреплён
-  к обоим listeners — WAF остаётся обязательной точкой входа и для HTTPS
+  ТОЛЬКО к HTTPS-листенеру — WAF остаётся обязательной точкой входа
   (TLS терминируется НА Gateway, WAF инспектирует расшифрованный трафик).
+- **HTTPRoute** `full-proj-http-redirect`: листенер `http`, фильтр `RequestRedirect`
+  (scheme https, port 30443) — весь HTTP-трафик уходит 302-редиректом на HTTPS,
+  до WAF не доходит.
 - Traefik-сервис — NodePort `30080`/`30443` (для k3s без MetalLB; на kubeadm — LoadBalancer).
 - **Сертификат**: самоподписанный (openssl), генерируется идемпотентно скриптом
   `scripts/gen-cert.sh` (SAN: `localhost`, `127.0.0.1`, `192.168.200.1` — стабильный
@@ -54,18 +57,12 @@
 kubectl get gatewayclass,gateway,httproute -n full-proj
 # GatewayClass traefik; Gateway full-proj-gateway: PROGRAMMED=True, Address: <node-ip>
 
-curl -s http://localhost:30080/api/news | head -c 200   # бэкенд через WAF
-# {"success":true,"data":[{"id":1,"slug":"zapusk-novogo-sajta",...}]}
+curl -s http://localhost:30080/api/news | head -c 200   # 302 -> https://localhost:30443/api/news
 
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost:30080/        # 200 (фронтенд через WAF)
-
-# HTTPS: TLS-terminate на Gateway, WAF инспектирует расшифрованный трафик
 curl -sk https://localhost:30443/api/news | head -c 200  # 200 + JSON
-curl -sk -o /dev/null -w '%{http_code}\n' -A 'sqlmap/1.7.2' https://localhost:30443/  # 403 (WAF)
 ```
 
 ## 4. Дополнительные возможности (роадмап)
 
 - несколько бэкендов/маршрутизация по path и hostname;
-- cert-manager (Let's Encrypt) вместо самоподписанного сертификата;
-- HTTP→HTTPS redirect для публичных стендов.
+- cert-manager (Let's Encrypt) вместо самоподписанного сертификата.

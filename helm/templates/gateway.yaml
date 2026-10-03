@@ -37,9 +37,8 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   parentRefs:
-    - name: {{ .Values.gateway.name }}
-      sectionName: http
-    # Тот же маршрут прикреплён и к HTTPS-listener'у (TLS-terminate на Gateway)
+    # Приложение — только на HTTPS-листенере (TLS-terminate на Gateway).
+    # HTTP-листенер :30080 отдаёт 308-редирект на https (отдельный HTTPRoute ниже).
     - name: {{ .Values.gateway.name }}
       sectionName: https
   rules:
@@ -52,3 +51,26 @@ spec:
       backendRefs:
         - name: waf
           port: {{ .Values.waf.port }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: full-proj-http-redirect
+  namespace: {{ .Values.namespace }}
+spec:
+  parentRefs:
+    - name: {{ .Values.gateway.name }}
+      sectionName: http
+  rules:
+    # Весь HTTP -> HTTPS: RequestRedirect с явным портом NodePort 30443
+    # (внешний порт, который видит клиент). Бэкенда у правила нет —
+    # редирект терминален, до WAF запрос не доходит.
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            port: {{ .Values.gateway.httpsNodePort }}

@@ -19,7 +19,7 @@ CHROME="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) C
 pass=0
 fail=0
 
-code() { curl -s -o /dev/null -w "%{http_code}" "$@"; }
+code() { curl -sk -o /dev/null -w "%{http_code}" "$@"; }
 
 check() { # description expected actual
     if [ "$2" = "$3" ]; then

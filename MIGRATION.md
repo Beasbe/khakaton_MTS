@@ -77,8 +77,8 @@ git ls-remote origin main                 # новый remote отвечает
 # CI (авто при push в main): helm lint -> сборка -> push в GHCR
 # CD (вручную): Actions -> CD (deploy) -> Run workflow на self-hosted runner
 kubectl get pods -n full-proj             # все Running
-curl -s http://<node-ip>:30080/api/news   # 200 + JSON
-./waf/tests/run-tests.sh                  # WAF 18/18 (на Compose-контуре)
+curl -sk https://<node-ip>:30443/api/news  # 200 + JSON (HTTP :30080 -> 302-редирект)
+./waf/tests/run-tests.sh https://<node-ip>:30443  # WAF 18/18
 ```
 
 ## 7. Заметки

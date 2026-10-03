@@ -104,8 +104,10 @@ gateway:
   className: traefik
   listenerPort: 80
   # HTTPS-listener: TLS-terminate на Gateway (самоподписанный сертификат
-  # из Secret, см. scripts/gen-cert.sh); NodePort 30443 у Traefik
+  # из Secret, см. scripts/gen-cert.sh); NodePort 30443 у Traefik.
+  # HTTP-листенер только редиректит на этот порт (HTTPRoute full-proj-http-redirect).
   httpsListenerPort: 443
+  httpsNodePort: 30443
   tlsSecret: full-proj-tls
 
 secrets:
