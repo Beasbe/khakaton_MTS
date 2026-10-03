@@ -84,6 +84,10 @@ waf:
   # генерировало URL вида http://localhost:8080 (неверно при доступе через Gateway).
   proxyHostHeader: "$http_host"
   nginxForwardedPort: "$http_x_forwarded_port"
+  # Схема клиента (http/https): берём из заголовка Traefik, а НЕ из $scheme —
+  # TLS терминируется на Gateway, до WAF трафик всегда доходит по http.
+  # Если заголовка нет (внутренние вызовы) — Laravel увидит http, что корректно.
+  nginxForwardedProto: "$http_x_forwarded_proto"
   # ModSecurity: On = блокирующий режим; DetectionOnly = только логировать
   modsecRuleEngine: "On"
   paranoia: "1"

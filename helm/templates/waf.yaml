@@ -217,6 +217,10 @@ spec:
               value: {{ .Values.waf.proxyHostHeader | quote }}
             - name: NGINX_X_FORWARDED_PORT
               value: {{ .Values.waf.nginxForwardedPort | quote }}
+            # Схема клиента из заголовка Traefik (не $scheme: до WAF трафик http,
+            # TLS снят на Gateway — иначе Laravel генерирует http-редиректы)
+            - name: NGINX_X_FORWARDED_PROTO
+              value: {{ .Values.waf.nginxForwardedProto | quote }}
             # ModSecurity: On (блокирующий режим) / DetectionOnly (только логи)
             - name: MODSEC_RULE_ENGINE
               value: {{ .Values.waf.modsecRuleEngine | quote }}

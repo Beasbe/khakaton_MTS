@@ -26,8 +26,16 @@ data:
             fastcgi_index index.php;
             fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
             fastcgi_param HTTP_HOST $host;
-            fastcgi_param HTTPS off;
             include fastcgi_params;
+            # TLS терминируется на Gateway (Traefik) — до бэкенда трафик доходит
+            # по HTTP. Пробрасываем X-Forwarded-* в php-fpm, чтобы Laravel
+            # (TrustProxies '*') генерировал корректные https-URL (редиректы
+            # /admin -> /admin/login, ссылки на /storage и т.д.).
+            fastcgi_param HTTP_X_FORWARDED_PROTO $http_x_forwarded_proto;
+            fastcgi_param HTTP_X_FORWARDED_HOST $http_x_forwarded_host;
+            fastcgi_param HTTP_X_FORWARDED_PORT $http_x_forwarded_port;
+            fastcgi_param HTTP_X_FORWARDED_FOR $http_x_forwarded_for;
+            fastcgi_param HTTPS $http_x_forwarded_proto;
         }
 
         location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf)$ {

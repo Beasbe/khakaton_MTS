@@ -50,6 +50,13 @@
   `scripts/gen-cert.sh` (SAN: `localhost`, `127.0.0.1`, `192.168.200.1` — стабильный
   IP ноды на dummy-интерфейсе; можно добавить IP аргументами). Браузер покажет
   предупреждение о недоверенном CA — это ожидаемо.
+- **Проброс схемы клиента**: WAF передаёт `X-Forwarded-Proto` не из своего
+  `$scheme` (до WAF трафик всегда http), а из заголовка Traefik
+  (`waf.nginxForwardedProto: "$http_x_forwarded_proto"`), а nginx бэкенда — в
+  php-fpm (`helm/templates/nginx.yaml`). Laravel (`TrustProxies`, `*`) видит
+  реальную схему и генерирует https-URL (редирект `/admin`, ассеты Filament,
+  ссылки `/storage`). Без этого `/admin` редиректил на `http://...:30443` и
+  ломался при переходе по ссылке.
 
 ## 3. Верификация (фактические результаты)
 
