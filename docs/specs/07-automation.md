@@ -8,7 +8,7 @@
 |---|---|
 | Статус | ✅ Реализовано (Compose + Kubernetes), идемпотентность проверена |
 | ОС | Ubuntu 24.04.5 LTS (стенд); Docker-путь — любая ОС с Docker |
-| Инструменты | shell (`scripts/build-images.sh`, `scripts/deploy.sh`), Docker Compose, Helm, GitHub Actions (подготовлен CI) |
+| Инструменты | shell (`scripts/build-images.sh`, `scripts/deploy.sh`), Docker Compose, Helm, GitHub Actions (CI — авто на push/PR; CD — вручную) |
 
 ## 1. Требования
 
@@ -18,7 +18,7 @@
 | FR-AUT-2 | Повторный запуск идемпотентен | ✅ проверено (повторный `deploy.sh` → «has been upgraded», состояние не ломается) |
 | FR-AUT-3 | Минимум понятных команд | ✅ `./scripts/build-images.sh` + `./scripts/deploy.sh` |
 | FR-AUT-4 | Поддержка Ubuntu 24.04 | ✅ развёрнуто и проверено на Ubuntu 24.04.5 |
-| FR-AUT-5 | CI/CD (доп. улучшение) | ⚠️ workflow подготовлен (`.github/workflows/deploy.yml`), финальная проверка CI — на завершающем этапе |
+| FR-AUT-5 | CI/CD (доп. улучшение) | ✅ CI: `.github/workflows/ci.yml` (helm lint + сборка + push в GHCR, авто на push/PR). CD: `.github/workflows/deploy.yml` (workflow_dispatch, self-hosted runner) — запускает принимающая сторона |
 
 ## 2. Реализация
 
@@ -44,11 +44,19 @@
 
 Все чарты тянутся как OCI-артефакты из ghcr.io (без `helm repo add`).
 
-### 2.3. CI/CD (подготовлено)
+### 2.3. CI/CD
 
-`.github/workflows/deploy.yml`: сборка образов → push в GHCR (`ghcr.io/${{ github.repository }}`)
-→ `helm upgrade --install` с секретами из GitHub Actions secrets → ожидание rollouts →
-debug-вывод. Финальное включение — на завершающем этапе (runner не трогаем).
+- **CI (`.github/workflows/ci.yml`)** — автоматически на push в `main` и на PR
+  (GitHub-hosted runner): `helm lint helm` → сборка backend/frontend
+  (`docker/build-push-action`, buildkit-кеш) → push в GHCR с тегами
+  `:latest` и `:${{ github.sha }}`. В PR образы собираются без push.
+  `NEXT_PUBLIC_API_URL` берётся из Variable репозитория (fallback
+  `http://localhost:30080`).
+- **CD (`.github/workflows/deploy.yml`)** — запускается вручную
+  (`workflow_dispatch`): требует self-hosted runner с Docker/kubectl/helm и
+  доступом к кластеру; выполняет `helm upgrade --install` с секретами из
+  GitHub Actions secrets, ждёт rollouts, при ошибке выводит диагностику.
+  Развёртывание на стенде выполняет принимающая сторона (см. MIGRATION.md).
 
 ## 3. Верификация
 
@@ -60,7 +68,7 @@ curl -s http://localhost:30080/api/news | head -c 120   # 200 + JSON
 
 ## 4. Ограничения / роадмап
 
-1. Smoke-тест (curl после деплоя) добавить в CI.
-2. `helm lint` / `kubeconform` в CI для проверки конфигураций.
+1. Smoke-тест (curl после деплоя) добавить в CI/CD.
+2. `kubeconform` для строгой валидации манифестов (сейчас — `helm lint`).
 3. Интерактивное создание админа в `setup.sh` → неинтерактивный режим через env.
 4. kubeadm-вариант установки кластера (приоритет кейса) — опциональный путь.

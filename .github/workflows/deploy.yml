@@ -1,9 +1,10 @@
-name: CI/CD
+name: CD (deploy)
 
+# CD (развёртывание) — запускается вручную: требует self-hosted runner
+# с доступом к кластеру (см. MIGRATION.md). CI (сборка образов в GHCR)
+# — в ci.yml, автоматически на push/PR.
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -52,7 +53,7 @@ jobs:
         run: |
           docker build \
             --network host \
-            --build-arg NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || 'http://localhost:8080' }} \
+            --build-arg NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || 'http://localhost:30080' }} \
             -t ghcr.io/${{ github.repository }}/frontend:${{ github.sha }} \
             -t ghcr.io/${{ github.repository }}/frontend:latest \
             ./It_project

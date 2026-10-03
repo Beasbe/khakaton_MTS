@@ -115,6 +115,29 @@ kubectl exec -it -n full-proj deploy/backend -c backend -- php artisan make:fila
 
 ---
 
+## Подключение к сервисам (port-forward)
+
+`kubectl port-forward` **блокирует терминал** — выполняйте запросы во втором
+терминале или пользуйтесь однострочниками с фоновым порт-форвардом (`&` +
+`kill %1`) из раздела проверки ниже. Подключайтесь к **сервисам** (`svc/...`),
+чтобы не вычислять имя пода. Имена подов по меткам:
+
+```bash
+kubectl get pods -n logging    -l app.kubernetes.io/name=fluent-bit
+kubectl get pods -n monitoring -l app.kubernetes.io/name=prometheus-node-exporter
+kubectl get pods -n monitoring -l app.kubernetes.io/name=kube-state-metrics
+```
+
+| Сервис | Команда | Что смотреть |
+|---|---|---|
+| Приложение + WAF | — | `http://localhost:30080/` (фронт), `/admin`, `/api` |
+| Traefik Dashboard | `kubectl port-forward -n traefik deploy/traefik 8080:8080` | `http://localhost:8080/dashboard/` |
+| Prometheus | `kubectl port-forward -n monitoring svc/prometheus-server 9090:80` | `http://localhost:9090` |
+| node-exporter | `kubectl port-forward -n monitoring svc/prometheus-prometheus-node-exporter 9100:9100` | `http://localhost:9100/metrics` |
+| kube-state-metrics | `kubectl port-forward -n monitoring svc/prometheus-kube-state-metrics 8180:8080` | `http://localhost:8180/metrics` |
+| Fluent Bit (метрики) | `kubectl port-forward -n logging svc/fluent-bit 2020:2020` | `http://localhost:2020/api/v1/metrics/prometheus` |
+| Loki | `kubectl port-forward -n logging svc/loki 3100:3100` | `http://localhost:3100/ready`, запросы LogQL |
+
 ## Проверка работоспособности (k8s)
 
 ```bash
@@ -127,14 +150,18 @@ curl -s http://localhost:30080/api/news | head -c 200   # 200 + JSON
 python3 waf/tests/ddos_static.py --url http://localhost:30080/favicon.ico  # 429
 kubectl logs -n full-proj deploy/waf                # audit JSON с ruleId
 
-# 3. Мониторинг
-kubectl port-forward -n monitoring svc/prometheus-server 9090:80
-curl 'http://localhost:9090/api/v1/query?query=up' | jq '.data.result[] | {job: .metric.job, value: .value[1]}'
-curl 'http://localhost:9090/api/v1/query?query=nginx_http_requests_total'
+# 3. Мониторинг (порт-форвард в фоне, в конце — kill %1)
+kubectl port-forward -n monitoring svc/prometheus-server 9090:80 &
+sleep 2
+curl -s 'http://localhost:9090/api/v1/query?query=up' | jq '.data.result[] | {job: .metric.job, value: .value[1]}'
+curl -s 'http://localhost:9090/api/v1/query?query=nginx_http_requests_total'
+kill %1
 
 # 4. Логирование (после обращения к приложению)
-kubectl port-forward -n logging svc/loki 3100:3100
-curl -G 'http://localhost:3100/loki/api/v1/query_range' --data-urlencode 'query={namespace="full-proj"}'
+kubectl port-forward -n logging svc/loki 3100:3100 &
+sleep 2
+curl -s -G 'http://localhost:3100/loki/api/v1/query_range' --data-urlencode 'query={namespace="full-proj"}' | jq '.data.result[].stream'
+kill %1
 ```
 
 ---

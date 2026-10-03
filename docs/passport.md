@@ -54,7 +54,7 @@ flowchart LR
 | WAF в k8s | Deployment `waf` (ModSecurity+CRS) — **единая точка входа: фронтенд и бэкенд за WAF** (роутинг по path); правило 1000001 (сканеры/ботнеты), `limit_req` на статику (429); ConfigMap'ы в `helm/templates/waf.yaml` | защита прикладного уровня, обойти нельзя (внешних портов у приложений нет) | `./waf/tests/run-tests.sh http://localhost:30080` → **18/18**; `python3 waf/tests/ddos_static.py` → 429; `kubectl logs deploy/waf` → audit JSON с ruleId |
 | Метрики приложения | nginx-prometheus-exporter sidecar (stub_status) | HTTP-метрики обязательны для observability | PromQL `nginx_http_requests_total` растёт после запросов |
 | Безопасность секретов | env/Secret/CI-secrets; история очищена от утёкших секретов | требование кейса | SPEC-08: git grep по истории пусто |
-| CI/CD | workflow GH Actions (build → GHCR → helm deploy) подготовлен | финал — на завершающем этапе | push в main → pipeline |
+| CI/CD | CI `.github/workflows/ci.yml` (авто на push/PR): helm lint + сборка + push в GHCR. CD `.github/workflows/deploy.yml` (workflow_dispatch): helm upgrade на self-hosted runner — выполняет принимающая сторона | финал — на завершающем этапе | push в main → CI зелёный, образы в GHCR |
 
 ---
 

@@ -57,4 +57,4 @@ flowchart LR
 | автоматизация, воспроизводимость, идемпотентность | ✅ | [SPEC-07](specs/07-automation.md) |
 | README + паспорт решения | ✅ | [README](../readme.md), [passport.md](passport.md) |
 | нет секретов в репозитории | ✅ | [SPEC-08](specs/08-security.md) |
-| дополнительные улучшения | WAF ✅, метрики приложения ✅, CI/CD ⚠️ финал | [SPEC-06](specs/06-waf.md), [SPEC-04](specs/04-monitoring.md) |
+| дополнительные улучшения | WAF ✅, метрики приложения ✅, CI ✅ (CD — по кнопке у принимающей стороны) | [SPEC-06](specs/06-waf.md), [SPEC-04](specs/04-monitoring.md), [SPEC-07](specs/07-automation.md) |

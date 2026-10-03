@@ -72,7 +72,8 @@ Runner должен иметь доступ к kubeconfig кластера k3s.
 
 ```bash
 git ls-remote origin main                 # новый remote отвечает
-# CI: push в main → workflow отработал (build → push → helm deploy)
+# CI (авто при push в main): helm lint -> сборка -> push в GHCR
+# CD (вручную): Actions -> CD (deploy) -> Run workflow на self-hosted runner
 kubectl get pods -n full-proj             # все Running
 curl -s http://<node-ip>:30080/api/news   # 200 + JSON
 ./waf/tests/run-tests.sh                  # WAF 18/18 (на Compose-контуре)
