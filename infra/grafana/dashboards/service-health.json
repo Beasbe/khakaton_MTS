@@ -2,7 +2,7 @@
   "uid": "service-health",
   "title": "Service Health (живость сервисов)",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
   "time": { "from": "now-15m", "to": "now" },
   "panels": [
@@ -13,17 +13,15 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
-          "unit": "none",
           "mappings": [
             { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
           ],
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
-          "color": { "mode": "background" }
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] }
         },
         "overrides": []
       },
       "targets": [ { "refId": "A", "expr": "up{job=\"traefik\"}" } ],
-      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" },
+      "options": { "colorMode": "thresholds", "graphMode": "none", "textMode": "value" },
       "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 }
     },
     {
@@ -36,13 +34,12 @@
           "mappings": [
             { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
           ],
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
-          "color": { "mode": "background" }
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] }
         },
         "overrides": []
       },
       "targets": [ { "refId": "A", "expr": "up{job=\"prometheus\"}" } ],
-      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" },
+      "options": { "colorMode": "thresholds", "graphMode": "none", "textMode": "value" },
       "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 }
     },
     {
@@ -55,13 +52,12 @@
           "mappings": [
             { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
           ],
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
-          "color": { "mode": "background" }
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] }
         },
         "overrides": []
       },
       "targets": [ { "refId": "A", "expr": "up{job=\"loki\"}" } ],
-      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" },
+      "options": { "colorMode": "thresholds", "graphMode": "none", "textMode": "value" },
       "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 }
     },
     {
@@ -74,13 +70,12 @@
           "mappings": [
             { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
           ],
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
-          "color": { "mode": "background" }
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] }
         },
         "overrides": []
       },
       "targets": [ { "refId": "A", "expr": "up{job=\"fluent-bit\"}" } ],
-      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" },
+      "options": { "colorMode": "thresholds", "graphMode": "none", "textMode": "value" },
       "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 }
     },
     {
@@ -93,13 +88,12 @@
           "mappings": [
             { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
           ],
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
-          "color": { "mode": "background" }
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] }
         },
         "overrides": []
       },
       "targets": [ { "refId": "A", "expr": "up{job=\"grafana\"}" } ],
-      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" },
+      "options": { "colorMode": "thresholds", "graphMode": "none", "textMode": "value" },
       "gridPos": { "h": 5, "w": 6, "x": 0, "y": 5 }
     },
     {
@@ -112,13 +106,12 @@
           "mappings": [
             { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
           ],
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
-          "color": { "mode": "background" }
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] }
         },
         "overrides": []
       },
       "targets": [ { "refId": "A", "expr": "up{job=\"node-exporter\"}" } ],
-      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" },
+      "options": { "colorMode": "thresholds", "graphMode": "none", "textMode": "value" },
       "gridPos": { "h": 5, "w": 6, "x": 6, "y": 5 }
     },
     {
@@ -131,13 +124,12 @@
           "mappings": [
             { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
           ],
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
-          "color": { "mode": "background" }
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] }
         },
         "overrides": []
       },
       "targets": [ { "refId": "A", "expr": "up{job=\"kubernetes-nodes-cadvisor\"}" } ],
-      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" },
+      "options": { "colorMode": "thresholds", "graphMode": "none", "textMode": "value" },
       "gridPos": { "h": 5, "w": 6, "x": 12, "y": 5 }
     },
     {
@@ -150,13 +142,12 @@
           "mappings": [
             { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
           ],
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
-          "color": { "mode": "background" }
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] }
         },
         "overrides": []
       },
       "targets": [ { "refId": "A", "expr": "up{job=\"kubernetes-api-servers\"}" } ],
-      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" },
+      "options": { "colorMode": "thresholds", "graphMode": "none", "textMode": "value" },
       "gridPos": { "h": 5, "w": 6, "x": 18, "y": 5 }
     },
     {
@@ -169,13 +160,12 @@
           "mappings": [
             { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
           ],
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
-          "color": { "mode": "background" }
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] }
         },
         "overrides": []
       },
       "targets": [ { "refId": "A", "expr": "kube_pod_status_ready{namespace=\"full-proj\", pod=~\"backend-.*\", condition=\"true\"}" } ],
-      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" },
+      "options": { "colorMode": "thresholds", "graphMode": "none", "textMode": "value" },
       "gridPos": { "h": 5, "w": 6, "x": 0, "y": 10 }
     },
     {
@@ -188,13 +178,12 @@
           "mappings": [
             { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
           ],
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
-          "color": { "mode": "background" }
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] }
         },
         "overrides": []
       },
       "targets": [ { "refId": "A", "expr": "kube_pod_status_ready{namespace=\"full-proj\", pod=~\"waf-.*\", condition=\"true\"}" } ],
-      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" },
+      "options": { "colorMode": "thresholds", "graphMode": "none", "textMode": "value" },
       "gridPos": { "h": 5, "w": 6, "x": 6, "y": 10 }
     },
     {
@@ -207,13 +196,12 @@
           "mappings": [
             { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
           ],
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
-          "color": { "mode": "background" }
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] }
         },
         "overrides": []
       },
       "targets": [ { "refId": "A", "expr": "kube_pod_status_ready{namespace=\"full-proj\", pod=~\"frontend-.*\", condition=\"true\"}" } ],
-      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" },
+      "options": { "colorMode": "thresholds", "graphMode": "none", "textMode": "value" },
       "gridPos": { "h": 5, "w": 6, "x": 12, "y": 10 }
     },
     {
@@ -226,13 +214,12 @@
           "mappings": [
             { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
           ],
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
-          "color": { "mode": "background" }
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] }
         },
         "overrides": []
       },
       "targets": [ { "refId": "A", "expr": "kube_pod_status_ready{namespace=\"full-proj\", pod=~\"mysql-.*\", condition=\"true\"}" } ],
-      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" },
+      "options": { "colorMode": "thresholds", "graphMode": "none", "textMode": "value" },
       "gridPos": { "h": 5, "w": 6, "x": 18, "y": 10 }
     }
   ]
