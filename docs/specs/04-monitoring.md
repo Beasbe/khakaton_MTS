@@ -51,7 +51,24 @@ login `admin` / `GRAFANA_ADMIN_PASSWORD`, по умолчанию `admin`):
   **Node Overview (hardware)** — CPU/RAM/диск/load/сеть узла;
   **Kubernetes / Application** — поды, рестарты, CPU/RAM подов, rps приложения;
   **WAF & Application logs (Loki)** — audit-события WAF, 4xx/5xx, живые логи;
-- PVC 1Gi (local-path), login проверен, дашборды видны без ручных настроек.
+  **Service Health (живость сервисов)** — UP/DOWN-панели по `up{job=...}` для
+  Traefik/Gateway, Prometheus, Loki, Fluent Bit, Grafana, ноды (node-exporter),
+  kubelet/cAdvisor, API server и подов full-proj (backend, waf, frontend,
+  mysql — через `kube_pod_status_ready`);
+- PVC 1Gi (local-path), login проверен, дашборды видны без ручных настроек;
+  пароль админа хранится в БД Grafana (PVC): `GRAFANA_ADMIN_PASSWORD` задаёт
+  его только при ПЕРВОЙ установке, смена пароля в UI сохраняется;
+  `/metrics` Grafana отдаётся без авторизации (scrape-джоба без basic_auth).
+
+Отдельные scrape-джобы для живости сервисов (static-конфиги в
+`infra/prometheus/values.yaml`):
+
+| Job | Target |
+|---|---|
+| `traefik` | `traefik-metrics.traefik.svc.cluster.local:9100` (entrypoint `metrics` чарта Traefik) |
+| `loki` | `loki.logging.svc.cluster.local:3100` |
+| `fluent-bit` | `fluent-bit.logging.svc.cluster.local:2020/api/v1/metrics/prometheus` |
+| `grafana` | `grafana.monitoring.svc.cluster.local:80` |
 
 ## 3. Верификация (фактические результаты)
 

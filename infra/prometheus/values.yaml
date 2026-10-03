@@ -31,9 +31,31 @@ server:
 # Дополнительные цели сбора метрик:
 #   * node-exporter (CPU/RAM/диски узла) — встроенный subchart;
 #   * nginx-exporter — sidecar в поде приложения (аннотации prometheus.io/*,
-#     подхватывается дефолтной джобой kubernetes-pods).
+#     подхватывается дефолтной джобой kubernetes-pods);
+#   * traefik/loki/fluent-bit/grafana — static-джобы для дашборда
+#     «Service Health» (up{job=...}): живость каждого сервиса.
 scrapeConfigs:
   node-exporter:
     static_configs:
       - targets:
           - prometheus-prometheus-node-exporter.monitoring.svc.cluster.local:9100
+  traefik:
+    static_configs:
+      - targets:
+          - traefik-metrics.traefik.svc.cluster.local:9100
+  loki:
+    static_configs:
+      - targets:
+          - loki.logging.svc.cluster.local:3100
+  fluent-bit:
+    metrics_path: /api/v1/metrics/prometheus
+    static_configs:
+      - targets:
+          - fluent-bit.logging.svc.cluster.local:2020
+  # /metrics Grafana не требует авторизации (Grafana 12 отдаёт метрики
+  # анонимно) — пароль не нужен. Порт 80: у сервиса grafana внешний порт 80
+  # (targetPort 3000 внутри).
+  grafana:
+    static_configs:
+      - targets:
+          - grafana.monitoring.svc.cluster.local:80

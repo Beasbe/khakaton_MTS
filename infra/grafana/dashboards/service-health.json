@@ -1,0 +1,239 @@
+{
+  "uid": "service-health",
+  "title": "Service Health (живость сервисов)",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-15m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Traefik / Gateway API",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [
+            { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
+          "color": { "mode": "background" }
+        },
+        "overrides": []
+      },
+      "targets": [ { "refId": "A", "expr": "up{job=\"traefik\"}" } ],
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Prometheus",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
+          "color": { "mode": "background" }
+        },
+        "overrides": []
+      },
+      "targets": [ { "refId": "A", "expr": "up{job=\"prometheus\"}" } ],
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Loki",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
+          "color": { "mode": "background" }
+        },
+        "overrides": []
+      },
+      "targets": [ { "refId": "A", "expr": "up{job=\"loki\"}" } ],
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Fluent Bit",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
+          "color": { "mode": "background" }
+        },
+        "overrides": []
+      },
+      "targets": [ { "refId": "A", "expr": "up{job=\"fluent-bit\"}" } ],
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Grafana",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
+          "color": { "mode": "background" }
+        },
+        "overrides": []
+      },
+      "targets": [ { "refId": "A", "expr": "up{job=\"grafana\"}" } ],
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 5 }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Node (node-exporter)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
+          "color": { "mode": "background" }
+        },
+        "overrides": []
+      },
+      "targets": [ { "refId": "A", "expr": "up{job=\"node-exporter\"}" } ],
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 5 }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Kubelet / cAdvisor",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
+          "color": { "mode": "background" }
+        },
+        "overrides": []
+      },
+      "targets": [ { "refId": "A", "expr": "up{job=\"kubernetes-nodes-cadvisor\"}" } ],
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 5 }
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "API server",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
+          "color": { "mode": "background" }
+        },
+        "overrides": []
+      },
+      "targets": [ { "refId": "A", "expr": "up{job=\"kubernetes-api-servers\"}" } ],
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 5 }
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Backend (nginx+php-fpm)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
+          "color": { "mode": "background" }
+        },
+        "overrides": []
+      },
+      "targets": [ { "refId": "A", "expr": "kube_pod_status_ready{namespace=\"full-proj\", pod=~\"backend-.*\", condition=\"true\"}" } ],
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 10 }
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "WAF (ModSecurity)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
+          "color": { "mode": "background" }
+        },
+        "overrides": []
+      },
+      "targets": [ { "refId": "A", "expr": "kube_pod_status_ready{namespace=\"full-proj\", pod=~\"waf-.*\", condition=\"true\"}" } ],
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 10 }
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Frontend (Next.js)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
+          "color": { "mode": "background" }
+        },
+        "overrides": []
+      },
+      "targets": [ { "refId": "A", "expr": "kube_pod_status_ready{namespace=\"full-proj\", pod=~\"frontend-.*\", condition=\"true\"}" } ],
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 10 }
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "MySQL",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
+          "color": { "mode": "background" }
+        },
+        "overrides": []
+      },
+      "targets": [ { "refId": "A", "expr": "kube_pod_status_ready{namespace=\"full-proj\", pod=~\"mysql-.*\", condition=\"true\"}" } ],
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 10 }
+    }
+  ]
+}

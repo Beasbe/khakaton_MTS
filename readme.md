@@ -25,7 +25,7 @@ WAF **ModSecurity + OWASP CRS**, с полным контуром по кейс�
 | Образы | собираются локально (`scripts/build-images.sh` → registry `localhost:5000`) или в GHCR (CI) |
 | WAF | ModSecurity 3.0.17 + OWASP CRS 4.29.0 (`owasp/modsecurity-crs:nginx-alpine`) — [SPEC-06](docs/specs/06-waf.md), [waf/SPEC.md](waf/SPEC.md) |
 | Мониторинг | Prometheus v3.15 + node-exporter + kube-state-metrics + nginx-exporter приложения — [SPEC-04](docs/specs/04-monitoring.md) |
-| Визуализация | **Grafana v12.3.1** (NodePort 30300): 3 дашборда (железо, k8s/приложение, WAF-логи), Prometheus + Loki подключены автоматически |
+| Визуализация | **Grafana v12.3.1** (NodePort 30300): 4 дашборда (железо, k8s/приложение, WAF-логи, живость сервисов), Prometheus + Loki подключены автоматически |
 | Логирование | Fluent Bit v5.1.3 (DaemonSet) → Loki v3.6.12 — [SPEC-05](docs/specs/05-logging.md) |
 | Автоматизация | `scripts/build-images.sh` + `scripts/deploy.sh` + `scripts/gen-cert.sh` (идемпотентно), CI в GH Actions — [SPEC-07](docs/specs/07-automation.md) |
 
@@ -89,7 +89,7 @@ chmod +x setup.sh && ./setup.sh
 | Фронтенд | `http://localhost:30080/` | страницы Next.js (лента, проекты, контакты) |
 | API — новости | `http://localhost:30080/api/news` | `{"success":true,"data":[...]}` |
 | API — проекты | `http://localhost:30080/api/projects` | JSON со списком проектов |
-| Админ-панель | `http://localhost:30080/admin` | Filament CMS (логин `admin/login`) |
+| Админ-панель | `http://localhost:30080/admin` | перед логином, создайте пользака командой ниже |
 | Хранилище | `http://localhost:30080/storage/...` | загруженные файлы |
 | Healthcheck WAF | `http://localhost:30080/healthz` | `OK` (отвечает сам WAF, не проксируется) |
 | Метрики WAF | `http://localhost:30080/metrics/nginx` | stub_status nginx WAF; по умолчанию **403** — открывается через `METRICS_ALLOW_FROM` (env пода waf) |
@@ -134,7 +134,7 @@ kubectl get pods -n monitoring -l app.kubernetes.io/name=kube-state-metrics
 | Сервис | Команда | Что смотреть |
 |---|---|---|
 | Приложение + WAF | — | `https://localhost:30443/` (HTTP `:30080` → 302-редирект), `/admin`, `/api` |
-| Grafana | — | `http://localhost:30300` (NodePort): дашборды «Node Overview», «Kubernetes / Application», «WAF & Application logs» |
+| Grafana | — | `http://localhost:30300` (NodePort): дашборды «Node Overview», «Kubernetes / Application», «WAF & Application logs», «Service Health» |
 | Traefik Dashboard | `kubectl port-forward -n traefik deploy/traefik 8080:8080` | `http://localhost:8080/dashboard/` |
 | Prometheus | `kubectl port-forward -n monitoring svc/prometheus-server 9090:80` | `http://localhost:9090` |
 | node-exporter | `kubectl port-forward -n monitoring svc/prometheus-prometheus-node-exporter 9100:9100` | `http://localhost:9100/metrics` |

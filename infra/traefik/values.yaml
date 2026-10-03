@@ -45,3 +45,13 @@ resources:
 # API для диагностики (внутренний entrypoint :8080, наружу не опубликован)
 api:
   insecure: true
+
+# Prometheus-метрики самого Traefik (entrypoint metrics :9100).
+# service.enabled: true — чарт создаёт отдельный Service <name>-metrics
+# (по умолчанию false). В infra/prometheus/values.yaml добавлена static-джоба
+# job=traefik для метрики up{job="traefik"} на дашборде Service Health.
+metrics:
+  prometheus:
+    enabled: true
+    service:
+      enabled: true
