@@ -32,6 +32,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # GHCR требует lowercase-пути репозитория (khakaton_MTS -> khakaton_mts)
+      - name: Compute lowercase repository path
+        id: repo
+        run: echo "lower=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
       ########################################
       # BUILD IMAGES
       ########################################
@@ -40,28 +45,28 @@ jobs:
         run: |
           docker build \
             --network host \
-            -t ghcr.io/${{ github.repository }}/backend:${{ github.sha }} \
-            -t ghcr.io/${{ github.repository }}/backend:latest \
+            -t ghcr.io/${{ steps.repo.outputs.lower }}/backend:${{ github.sha }} \
+            -t ghcr.io/${{ steps.repo.outputs.lower }}/backend:latest \
             ./CMS
 
       - name: Push Backend
         run: |
-          docker push ghcr.io/${{ github.repository }}/backend:${{ github.sha }}
-          docker push ghcr.io/${{ github.repository }}/backend:latest
+          docker push ghcr.io/${{ steps.repo.outputs.lower }}/backend:${{ github.sha }}
+          docker push ghcr.io/${{ steps.repo.outputs.lower }}/backend:latest
 
       - name: Build Frontend
         run: |
           docker build \
             --network host \
             --build-arg NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || 'http://localhost:30080' }} \
-            -t ghcr.io/${{ github.repository }}/frontend:${{ github.sha }} \
-            -t ghcr.io/${{ github.repository }}/frontend:latest \
+            -t ghcr.io/${{ steps.repo.outputs.lower }}/frontend:${{ github.sha }} \
+            -t ghcr.io/${{ steps.repo.outputs.lower }}/frontend:latest \
             ./It_project
 
       - name: Push Frontend
         run: |
-          docker push ghcr.io/${{ github.repository }}/frontend:${{ github.sha }}
-          docker push ghcr.io/${{ github.repository }}/frontend:latest
+          docker push ghcr.io/${{ steps.repo.outputs.lower }}/frontend:${{ github.sha }}
+          docker push ghcr.io/${{ steps.repo.outputs.lower }}/frontend:latest
 
       ########################################
       # UNLOCK HELM
@@ -91,7 +96,7 @@ jobs:
             --history-max 3 \
             --timeout 15m \
             --set image.tag=${{ github.sha }} \
-            --set registry=ghcr.io/${{ github.repository }} \
+            --set registry=ghcr.io/${{ steps.repo.outputs.lower }} \
             --set-string secrets.APP_KEY="${{ secrets.APP_KEY }}" \
             --set-string secrets.DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
             --set-string secrets.DB_ROOT_PASSWORD="${{ secrets.DB_ROOT_PASSWORD }}" \

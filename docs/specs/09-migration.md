@@ -20,8 +20,10 @@
 
 ## 2. Реализованные изменения
 
-1. **GHCR-ссылки** в workflow параметризованы: `ghcr.io/${{ github.repository }}/...`
-   — автоматически адаптируются к новому репозиторию.
+1. **GHCR-ссылки** в workflow параметризованы: путь репозитория приводится к
+   lowercase (`khakaton_MTS` → `khakaton_mts`, шаг «Compute lowercase repository
+   path» в `ci.yml`/`deploy.yml`) — GHCR не принимает заглавные буквы в имени
+   образа; автоматически адаптируется к новому репозиторию.
 2. **`NEXT_PUBLIC_API_URL`** — через Variable `NEXT_PUBLIC_API_URL` (без хардкода IP).
 3. **`runs-on`** — через Variable `RUNNER_LABEL` (fallback `server`).
 4. **`helm/values.yaml`** — `registry` вынесен в значение-заглушку, переопределяется в CI.
