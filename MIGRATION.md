@@ -53,11 +53,13 @@ Runner должен иметь доступ к kubeconfig кластера k3s.
 
 ## 4. GHCR
 
-В workflow образы публикуются автоматически в
-`ghcr.io/<NEW_ORG>/<NEW_REPO>/{backend,frontend}` (первый запуск создаст пакеты;
-при необходимости включите публичный доступ к пакетам в настройках).
+В CI образы публикуются автоматически в
+`ghcr.io/<org>/<repo-lowercase>/{backend,frontend}` (первый запуск создаст
+пакеты; имя репозитория приводится к нижнему регистру — GHCR не принимает
+заглавные, `khakaton_MTS` → `khakaton_mts`). Пакеты связаны с публичным
+репозиторием — анонимный `docker pull` работает без авторизации (проверено).
 В `helm/values.yaml` строка `registry` переопределяется в CI через
-`--set registry=ghcr.io/${{ github.repository }}`.
+`--set registry=ghcr.io/<repo-lowercase>`.
 
 ## 5. Что обновить после переноса
 
