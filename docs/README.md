@@ -17,7 +17,7 @@
 | 05 | [Логирование (Fluent Bit → Loki)](specs/05-logging.md) | п.5 | ✅ Fluent Bit DaemonSet → Loki |
 | 06 | [WAF ModSecurity + OWASP CRS](specs/06-waf.md) | доп. улучшение | ✅ в Compose и в Kubernetes |
 | 07 | [Автоматизация развёртывания](specs/07-automation.md) | п.7 | ✅ deploy.sh, идемпотентность проверена |
-| 08 | [Безопасность и секреты](specs/08-security.md) | требования безопасности | ✅ реализовано |
+| 08 | [Безопасность и секреты](specs/08-security.md) | требования безопасности | ✅ реализовано + **DevSecOps: gitleaks в CI, Argo CD (GitOps), пиннинг диджестов** |
 | 09 | [Перенос на новый GitHub](specs/09-migration.md) | подготовка к сдаче | ✅ подготовлено |
 
 Полная детальная спецификация WAF — [`waf/SPEC.md`](../waf/SPEC.md).
@@ -62,4 +62,4 @@ flowchart LR
 | автоматизация, воспроизводимость, идемпотентность | ✅ | [SPEC-07](specs/07-automation.md) |
 | README + паспорт решения | ✅ | [README](../readme.md), [passport.md](passport.md) |
 | нет секретов в репозитории | ✅ | [SPEC-08](specs/08-security.md) |
-| дополнительные улучшения | WAF ✅, метрики приложения ✅, Grafana ✅, HTTPS/самоподписанный TLS ✅, CI ✅ (CD — по кнопке у принимающей стороны) | [SPEC-06](specs/06-waf.md), [SPEC-04](specs/04-monitoring.md), [SPEC-03](specs/03-gateway-api.md), [SPEC-07](specs/07-automation.md) |
+| дополнительные улучшения | WAF ✅, метрики приложения ✅, Grafana ✅, HTTPS/самоподписанный TLS ✅, CI ✅, **DevSecOps: gitleaks + Argo CD ✅** | [SPEC-06](specs/06-waf.md), [SPEC-04](specs/04-monitoring.md), [SPEC-03](specs/03-gateway-api.md), [SPEC-07](specs/07-automation.md), [SPEC-08](specs/08-security.md) |

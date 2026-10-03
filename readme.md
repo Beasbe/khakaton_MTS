@@ -63,6 +63,7 @@ cp local-secrets.example.yaml local-secrets.yaml   # заполнить APP_KEY 
 | Админ-панель | `https://localhost:30443/admin` | Filament CMS |
 | API | `https://localhost:30443/api` | JSON-эндпоинты |
 | Grafana | `http://localhost:30300` | дашборды метрик и логов (`admin` / `GRAFANA_ADMIN_PASSWORD`, по умолчанию `admin`) |
+| Argo CD (GitOps) | `http://localhost:30444` | сверка кластера с репозиторием (`admin` / `argocd123`) |
 
 ## Быстрый старт (Docker Compose)
 
@@ -135,6 +136,7 @@ kubectl get pods -n monitoring -l app.kubernetes.io/name=kube-state-metrics
 |---|---|---|
 | Приложение + WAF | — | `https://localhost:30443/` (HTTP `:30080` → 302-редирект), `/admin`, `/api` |
 | Grafana | — | `http://localhost:30300` (NodePort): дашборды «Node Overview», «Kubernetes / Application», «WAF & Application logs», «Service Health» |
+| Argo CD | — | `http://localhost:30444` (NodePort): Application `full-proj` — sync-статус, дрейф кластера |
 | Traefik Dashboard | `kubectl port-forward -n traefik deploy/traefik 8080:8080` | `http://localhost:8080/dashboard/` |
 | Prometheus | `kubectl port-forward -n monitoring svc/prometheus-server 9090:80` | `http://localhost:9090` |
 | node-exporter | `kubectl port-forward -n monitoring svc/prometheus-prometheus-node-exporter 9100:9100` | `http://localhost:9100/metrics` |
@@ -188,6 +190,20 @@ WAF). Фронтенд собран с относительными URL — ра
 что весь прикладной трафик гарантированно идёт по TLS и через WAF.
 
 ---
+
+## DevSecOps
+
+- **Gitleaks** в CI (джоба `secrets`): сканирование секретов во всей git-истории;
+  локально: `gitleaks detect --source .` (или через Docker). Проверено: 79 коммитов — утечек нет.
+- **Argo CD (GitOps)**: кластер непрерывно сверяется с репозиторием — Application
+  `full-proj` (`argocd/application.yaml`) разворачивает чарт `helm/` из ветки `main`;
+  `selfHeal` откатывает любые ручные изменения в кластере, `prune` удаляет лишнее.
+  Секреты в git не попадают: `app-secrets` создаётся вне git (deploy.sh из
+  `local-secrets.yaml`, чарт при `secrets.existingSecret=true` его не трогает).
+  Образы приложения — ghcr.io с тегом = git SHA коммита; WAF зафиксирован по диджесту.
+  UI: `http://localhost:30444` (`admin` / `argocd123`).
+  Демо дрейфа: `kubectl scale deployment backend -n full-proj --replicas=3` →
+  Argo CD в течение минуты вернёт 1 реплику (как в чарте).
 
 ## Документация
 

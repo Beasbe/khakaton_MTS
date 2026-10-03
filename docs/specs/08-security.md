@@ -20,9 +20,17 @@
 | Контур | Механизм передачи секретов |
 |---|---|
 | Docker Compose | переменные окружения из `.env` (см. [`.env.example`](../../.env.example)); в репозитории — только примеры |
-| Kubernetes | Secret `app-secrets` (`helm/templates/secrets.yaml`, `stringData`), значения — из CI-секретов `--set-string secrets.*`; в `values.yaml` — пустые |
+| Kubernetes | Secret `app-secrets` — создаётся ВНЕ git: `deploy.sh` рендерит его шаблоном чарта из `local-secrets.yaml` (при GitOps чарт ставит `secrets.existingSecret=true` и Secret не трогает); в `values.yaml` — пустые |
 | CI/CD | GitHub Actions secrets (`APP_KEY`, `DB_PASSWORD`, `SMTP_*`, …) — никогда не в файлах |
 | Laravel | `APP_KEY` генерируется при установке (`php artisan key:generate`), в `.env.example` — пустой |
+
+### DevSecOps-контур
+
+| Инструмент | Что делает | Где |
+|---|---|---|
+| **Gitleaks** | сканирует секреты во ВСЕЙ git-истории (джоба `secrets` в CI, блокирует build; локально: `gitleaks detect`). Проверено: 79 коммитов — утечек нет | `.github/workflows/ci.yml` |
+| **Argo CD** (GitOps) | кластер непрерывно сверяется с репозиторием: `selfHeal` откатывает любые ручные изменения в подах/деплойментах к состоянию из git, `prune` удаляет лишнее; дрейф виден в UI. Проверено: ручной `scale` backend до 3 реплик — Argo CD вернул 1 (как в чарте) | `infra/argocd/values.yaml`, `argocd/application.yaml` |
+| Пиннинг диджестов | WAF-образ зафиксирован по `@sha256:...` в `helm/values.yaml` (воспроизводимость, защита от подмены floating-тегов); образы приложения тегируются git SHA в CI и привязываются к коммиту в `argocd/application.yaml` | `helm/values.yaml` |
 
 ### Инциденты и их устранение (2026-10-02)
 
@@ -46,8 +54,7 @@ git log --all --oneline -S 'REDACTED_SSH_PASS'        # пусто
 
 ## 4. Роадмап
 
-1. Сканирование секретов в CI: **gitleaks** / **trufflehog** (шаг в workflow, блокирует push/PR).
-2. Управление секретами в кластере: **sealed-secrets** или **external-secrets** вместо
-   передачи через CI-переменные.
-3. NetworkPolicy: разрешить трафик только `nginx → backend → mysql`, `waf → nginx`.
-4. TLS для всех внешних эндпоинтов (cert-manager).
+1. Управление секретами в кластере: **sealed-secrets** или **external-secrets** вместо
+   передачи через CI-переменные (сейчас секреты вне git — `local-secrets.yaml`/CI-secrets).
+2. NetworkPolicy: разрешить трафик только `nginx → backend → mysql`, `waf → nginx`.
+3. TLS для всех внешних эндпоинтов (cert-manager вместо самоподписанного).

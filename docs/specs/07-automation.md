@@ -34,16 +34,17 @@
 ./scripts/deploy.sh           # весь стек (см. ниже)
 ```
 
-`deploy.sh` выполняет 6 идемпотентных шагов:
+`deploy.sh` выполняет 7 идемпотентных шагов:
 1. Gateway API CRD v1.5.1 + workaround CoreDNS для k3s v1.36.x;
 2. Traefik v3 (Gateway API, NodePort 30080 HTTP + 30443 HTTPS);
-3. самоподписанный TLS-сертификат (`scripts/gen-cert.sh`) + приложение:
-   Helm-чарт `helm/` (backend+nginx+exporter, mysql, frontend, WAF,
-   Gateway с listeners HTTP/HTTPS + HTTPRoute), секреты из `local-secrets.yaml`
-   (не коммитится);
+3. самоподписанный TLS-сертификат (`scripts/gen-cert.sh`) + Secret `app-secrets`
+   (рендерится шаблоном чарта из `local-secrets.yaml` — секреты вне git);
 4. Prometheus (+node-exporter, +kube-state-metrics из чарта);
 5. Grafana (дашборды из ConfigMap, Prometheus+Loki datasources, NodePort 30300);
-6. Loki + Fluent Bit.
+6. Loki + Fluent Bit;
+7. **Argo CD** (GitOps, NodePort 30444) + Application `full-proj` — приложение
+   разворачивается ИЗ репозитория (ветка main, чарт `helm/`): automated sync
+   (selfHeal + prune), образы из ghcr.io с тегом = git SHA.
 
 Все чарты тянутся как OCI-артефакты из ghcr.io (без `helm repo add`).
 
@@ -60,6 +61,9 @@
   доступом к кластеру; выполняет `helm upgrade --install` с секретами из
   GitHub Actions secrets, ждёт rollouts, при ошибке выводит диагностику.
   Развёртывание на стенде выполняет принимающая сторона (см. MIGRATION.md).
+- **GitOps (Argo CD)** — на стенде приложение управляется не CD-воркфлоу, а
+  Argo CD: источник истины — репозиторий (`argocd/application.yaml`), любой
+  ручной дрейф кластера откатывается автоматически (selfHeal).
 
 ## 3. Верификация
 

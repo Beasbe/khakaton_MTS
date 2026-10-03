@@ -94,6 +94,8 @@ cp local-secrets.example.yaml local-secrets.yaml   # заполнить APP_KEY 
 | CI/CD | CI `.github/workflows/ci.yml` (авто на push/PR): helm lint + сборка + push в GHCR. CD `.github/workflows/deploy.yml` (workflow_dispatch): helm upgrade на self-hosted runner — выполняет принимающая сторона | финал — на завершающем этапе | push в main → CI зелёный, образы в GHCR |
 | Grafana | чарт `infra/grafana/values.yaml`, NodePort 30300; Prometheus+Loki подключены автоматически; 4 дашборда из ConfigMap (железо, k8s/приложение, WAF-логи, живость сервисов); пароль админа хранится в PVC (меняется в UI) | визуализация метрик и логов без ручной настройки | `http://<node-ip>:30300` → дашборды с данными, Service Health — все UP |
 | HTTPS (самоподписанный TLS) | listener `https` :443 в Gateway (`certificateRefs` → Secret `full-proj-tls` из `scripts/gen-cert.sh`); terminate на Traefik, WAF инспектирует расшифрованный трафик | безопасность без внешнего CA; фронтенд на относительных URL — работает и по HTTP, и по HTTPS | `curl -sk https://localhost:30443/api/news` → 200; атака на HTTPS → 403 |
+| DevSecOps: gitleaks | джоба `secrets` в CI (`gitleaks-action`, полная git-история) — блокирует сборку при утечке | превентивная защита от попадания секретов | локально: 79 коммитов — «no leaks found»; CI green |
+| DevSecOps: Argo CD (GitOps) | Argo CD (NodePort 30444, `admin`/`argocd123`) управляет приложением из ветки `main`; automated sync: selfHeal + prune; секреты вне git (`secrets.existingSecret`); образы по git SHA, WAF по диджесту | кластер всегда = репозиторий, ручной дрейф откатывается | `kubectl scale deploy backend --replicas=3` → Argo CD возвращает 1; UI `http://<node-ip>:30444` |
 
 ---
 
