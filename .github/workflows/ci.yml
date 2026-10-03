@@ -73,7 +73,7 @@ jobs:
           context: ./It_project
           push: ${{ github.event_name != 'pull_request' }}
           build-args: |
-            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || 'http://localhost:30080' }}
+            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || '' }}
           tags: |
             ghcr.io/${{ steps.repo.outputs.lower }}/frontend:${{ github.sha }}
             ghcr.io/${{ steps.repo.outputs.lower }}/frontend:latest

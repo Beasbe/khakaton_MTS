@@ -12,8 +12,8 @@
 |---|---|---|---|
 | 01 | [Kubernetes-окружение](specs/01-kubernetes.md) | п.1 | ✅ k3s v1.36.5 + Helm + deploy.sh |
 | 02 | [Демонстрационное веб-приложение](specs/02-application.md) | п.2 | ✅ реализовано |
-| 03 | [Gateway API](specs/03-gateway-api.md) | п.3 | ✅ Traefik v3.7.13: GatewayClass + Gateway + HTTPRoute |
-| 04 | [Мониторинг (Prometheus)](specs/04-monitoring.md) | п.4 | ✅ Prometheus + node-exporter + kube-state-metrics + nginx-exporter |
+| 03 | [Gateway API](specs/03-gateway-api.md) | п.3 | ✅ Traefik v3.7.13: GatewayClass + Gateway (HTTP :80 + HTTPS :443) + HTTPRoute |
+| 04 | [Мониторинг (Prometheus)](specs/04-monitoring.md) | п.4 | ✅ Prometheus + node-exporter + kube-state-metrics + nginx-exporter + **Grafana (3 дашборда)** |
 | 05 | [Логирование (Fluent Bit → Loki)](specs/05-logging.md) | п.5 | ✅ Fluent Bit DaemonSet → Loki |
 | 06 | [WAF ModSecurity + OWASP CRS](specs/06-waf.md) | доп. улучшение | ✅ в Compose и в Kubernetes |
 | 07 | [Автоматизация развёртывания](specs/07-automation.md) | п.7 | ✅ deploy.sh, идемпотентность проверена |
@@ -26,21 +26,26 @@
 
 ```mermaid
 flowchart LR
-    U[Пользователь] -->|:30080 NodePort| G[Traefik v3 Gateway API]
+    U[Пользователь] -->|:30080 HTTP / :30443 HTTPS| G[Traefik v3 Gateway API]
     G -->|HTTPRoute| WAF[WAF: ModSecurity + OWASP CRS]
     WAF -->|"/api /admin /storage"| NX[nginx + Laravel php-fpm]
     WAF -->|"/ фронтенд"| FE[Next.js ClusterIP]
     NX --> DB[(MySQL + PVC)]
     NX -->|:9113 stub_status| P[Prometheus + node-exporter + kube-state-metrics]
+    GF[Grafana :30300] --> P
+    GF --> L[(Loki)]
     NX -.->|stdout access-log| FB[Fluent Bit DaemonSet] --> L[(Loki)]
     FE -.->|stdout access-log| FB
 ```
 
-**Единая точка входа (вариант A):** весь HTTP-трафик (и фронтенд, и бэкенд) проходит
+**Единая точка входа (вариант A):** весь трафик (и фронтенд, и бэкенд), по HTTP
+(`:30080`) и по HTTPS (`:30443`, самоподписанный TLS, terminate на Gateway) проходит
 через Gateway API → WAF. WAF инспектирует ModSecurity+CRS каждый запрос и сам
 маршрутизирует по пути: `/api`, `/admin`, `/storage`, `/sanctum`, `/livewire`,
 `/filament`, `/css`, `/js`, `/vendor` → бэкенд; всё остальное (включая `/api/contact`)
 → фронтенд. Отдельного внешнего порта у фронтенда нет — обойти WAF нельзя.
+**Grafana** (NodePort `:30300`) визуализирует метрики Prometheus и логи Loki
+(3 готовых дашборда).
 
 Все компоненты — в кластере **k3s v1.36.5** (Ubuntu 24.04.5 LTS),
 развёртывание одной командой `./scripts/deploy.sh` (Helm-чарты из OCI ghcr.io).
@@ -50,11 +55,11 @@ flowchart LR
 | Требование кейса | Статус | Где проверять |
 |---|---|---|
 | веб-приложение в Kubernetes | ✅ | [SPEC-01](specs/01-kubernetes.md), [SPEC-02](specs/02-application.md) |
-| доступ через Kubernetes Gateway API | ✅ | [SPEC-03](specs/03-gateway-api.md) — `curl http://localhost:30080/api/news` |
+| доступ через Kubernetes Gateway API | ✅ | [SPEC-03](specs/03-gateway-api.md) — `curl http://localhost:30080/api/news`, `curl -sk https://localhost:30443/api/news` |
 | Prometheus собирает метрики | ✅ | [SPEC-04](specs/04-monitoring.md) — `up`, `nginx_http_requests_total` |
 | Fluent Bit собирает логи | ✅ | [SPEC-05](specs/05-logging.md) — Loki API после запроса |
 | Ubuntu 24.04 | ✅ | [SPEC-01](specs/01-kubernetes.md), [SPEC-07](specs/07-automation.md) |
 | автоматизация, воспроизводимость, идемпотентность | ✅ | [SPEC-07](specs/07-automation.md) |
 | README + паспорт решения | ✅ | [README](../readme.md), [passport.md](passport.md) |
 | нет секретов в репозитории | ✅ | [SPEC-08](specs/08-security.md) |
-| дополнительные улучшения | WAF ✅, метрики приложения ✅, CI ✅ (CD — по кнопке у принимающей стороны) | [SPEC-06](specs/06-waf.md), [SPEC-04](specs/04-monitoring.md), [SPEC-07](specs/07-automation.md) |
+| дополнительные улучшения | WAF ✅, метрики приложения ✅, Grafana ✅, HTTPS/самоподписанный TLS ✅, CI ✅ (CD — по кнопке у принимающей стороны) | [SPEC-06](specs/06-waf.md), [SPEC-04](specs/04-monitoring.md), [SPEC-03](specs/03-gateway-api.md), [SPEC-07](specs/07-automation.md) |

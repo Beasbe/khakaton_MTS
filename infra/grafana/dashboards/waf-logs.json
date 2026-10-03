@@ -1,0 +1,68 @@
+{
+  "uid": "waf-logs",
+  "title": "WAF & Application logs (Loki)",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "WAF audit events / 5m",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({namespace=\"full-proj\", container=\"modsecurity-waf\"}[5m]))",
+          "legendFormat": "audit events"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "4xx/5xx responses / 5m",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({namespace=\"full-proj\"} |~ \"\\\" (4|5)[0-9][0-9] \"[5m]))",
+          "legendFormat": "errors"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+    },
+    {
+      "id": 3,
+      "type": "logs",
+      "title": "Recent WAF audit log",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{namespace=\"full-proj\", container=\"modsecurity-waf\"}"
+        }
+      ],
+      "options": { "showTime": true, "sortOrder": "Descending", "enableLogDetails": true },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 8 }
+    },
+    {
+      "id": 4,
+      "type": "logs",
+      "title": "All application logs",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{namespace=\"full-proj\"}"
+        }
+      ],
+      "options": { "showTime": true, "sortOrder": "Descending", "enableLogDetails": true },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 18 }
+    }
+  ]
+}

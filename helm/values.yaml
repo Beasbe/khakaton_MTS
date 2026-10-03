@@ -25,15 +25,18 @@ backend:
     DB_PORT: "3306"
     DB_DATABASE: laravel_dev
     DB_USERNAME: laravel
-    # Разрешённые Origin для CORS: фронтенд теперь за тем же Gateway :30080
-    CORS_ALLOWED_ORIGINS: "http://localhost:30080"
+    # Разрешённые Origin для CORS: фронтенд за тем же Gateway (:30080 HTTP,
+    # :30443 HTTPS). С относительными URL запросы same-origin — CORS не нужен,
+    # но origins оставлены для прямых обращений.
+    CORS_ALLOWED_ORIGINS: "http://localhost:30080,https://localhost:30443,http://192.168.200.1:30080,https://192.168.200.1:30443"
 
 frontend:
   replicas: 1
   port: 3000
   # Внешнего NodePort нет: фронтенд доступен ТОЛЬКО через Gateway API :30080 -> WAF
-  # (вариант A). NEXT_PUBLIC_API_URL вшивается при сборке образа.
-  apiUrl: "http://localhost:30080"
+  # (вариант A). NEXT_PUBLIC_API_URL вшивается при сборке образа; пустая строка =
+  # относительные URL (/api, /storage) — работают и по HTTP :30080, и по HTTPS :30443.
+  apiUrl: ""
   # Внутрикластерный адрес для SSR-запросов (server components): из пода
   # localhost:30080 недоступен — сервер ходит напрямую в Service waf (вариант A).
   internalApiUrl: "http://waf.full-proj.svc.cluster.local:8080"
@@ -100,6 +103,10 @@ gateway:
   name: full-proj-gateway
   className: traefik
   listenerPort: 80
+  # HTTPS-listener: TLS-terminate на Gateway (самоподписанный сертификат
+  # из Secret, см. scripts/gen-cert.sh); NodePort 30443 у Traefik
+  httpsListenerPort: 443
+  tlsSecret: full-proj-tls
 
 secrets:
   APP_KEY: ""

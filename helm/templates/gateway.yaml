@@ -14,6 +14,21 @@ spec:
       allowedRoutes:
         namespaces:
           from: Same
+    # HTTPS: TLS-termination на Traefik (самоподписанный сертификат из Secret
+    # full-proj-tls, создаётся scripts/gen-cert.sh). WAF за Gateway продолжает
+    # работать по HTTP — инспектируется весь трафик.
+    - name: https
+      protocol: HTTPS
+      port: {{ .Values.gateway.httpsListenerPort }}
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: {{ .Values.gateway.tlsSecret }}
+      allowedRoutes:
+        namespaces:
+          from: Same
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -24,6 +39,9 @@ spec:
   parentRefs:
     - name: {{ .Values.gateway.name }}
       sectionName: http
+    # Тот же маршрут прикреплён и к HTTPS-listener'у (TLS-terminate на Gateway)
+    - name: {{ .Values.gateway.name }}
+      sectionName: https
   rules:
     # Весь HTTP-трафик -> Service waf (WAF - обязательная точка входа),
     # далее WAF реверс-проксирует на Service nginx -> php-fpm.

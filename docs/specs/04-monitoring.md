@@ -7,7 +7,7 @@
 | | |
 |---|---|
 | Статус | ✅ **Реализовано и проверено** |
-| Стек | Prometheus v3.15.0 (чарт prometheus-community/prometheus 29.35.0), node-exporter, kube-state-metrics |
+| Стек | Prometheus v3.15.0 (чарт prometheus-community/prometheus 29.35.0), node-exporter, kube-state-metrics, **Grafana v12.3.1** (дашборды) |
 
 ## 1. Требования (из кейса)
 
@@ -38,6 +38,21 @@
 | `kubernetes-service-endpoints` | kube-state-metrics | состояние подов/деплойментов |
 | `kubernetes-nodes` / `kubernetes-api-servers` | k8s | состояние кластера |
 
+### Визуализация: Grafana
+
+Grafana (чарт `ghcr.io/grafana/helm-charts/grafana`, `infra/grafana/values.yaml`)
+развёрнута в namespace `monitoring`, NodePort **30300** (`http://<node-ip>:30300`,
+login `admin` / `GRAFANA_ADMIN_PASSWORD`, по умолчанию `admin`):
+
+- источники данных провайзятся автоматически: **Prometheus**
+  (`prometheus-server.monitoring.svc.cluster.local:80`) и **Loki**
+  (`loki.logging.svc.cluster.local:3100`);
+- дашборды (ConfigMap `grafana-dashboards` из `infra/grafana/dashboards/`):
+  **Node Overview (hardware)** — CPU/RAM/диск/load/сеть узла;
+  **Kubernetes / Application** — поды, рестарты, CPU/RAM подов, rps приложения;
+  **WAF & Application logs (Loki)** — audit-события WAF, 4xx/5xx, живые логи;
+- PVC 1Gi (local-path), login проверен, дашборды видны без ручных настроек.
+
 ## 3. Верификация (фактические результаты)
 
 ```bash
@@ -56,8 +71,14 @@ curl 'http://localhost:9090/api/v1/query?query=node_memory_MemAvailable_bytes/10
 curl 'http://localhost:9090/api/v1/query?query=rate(container_cpu_usage_seconds_total[5m])'
 ```
 
+Grafana (визуальная проверка):
+
+```bash
+curl -s http://localhost:30300/api/health            # {"database":"ok","version":"12.3.1",...}
+# браузер: http://<node-ip>:30300 -> 3 готовых дашборда, логи за последние 30 мин в Loki-панелях
+```
+
 ## 4. Роадмап
 
-- Grafana + дашборды (Node Exporter Full, nginx);
 - HTTP-метрики Laravel (пакет `spatie/laravel-prometheus`): коды ответов, latency;
 - алерты (Alertmanager), ServiceMonitor/operator при переносе на kube-prometheus-stack.

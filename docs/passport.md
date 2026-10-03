@@ -11,18 +11,20 @@
 |---|---|
 | Версия Kubernetes | **k3s v1.36.5 (Kubernetes v1.36.5)**, containerd 2.3.4 |
 | Способ развёртывания K8s | k3s (`get.k3s.io`), всё приложение — Helm-чарты, одна команда `./scripts/deploy.sh` |
-| Реализация Gateway API | **Traefik v3.7.13** (Gateway API v1.5.1): GatewayClass `traefik`, Gateway `full-proj-gateway` (PROGRAMMED), HTTPRoute `full-proj-route` |
-| Инструменты автоматизации | `scripts/build-images.sh`, `scripts/deploy.sh`, Helm, GitHub Actions (подготовлен) |
+| Реализация Gateway API | **Traefik v3.7.13** (Gateway API v1.5.1): GatewayClass `traefik`, Gateway `full-proj-gateway` (listeners HTTP :80 + HTTPS :443, PROGRAMMED), HTTPRoute `full-proj-route` |
+| Внешний доступ | HTTP `http://<node-ip>:30080`, HTTPS `https://<node-ip>:30443` (самоподписанный TLS, terminate на Gateway) |
+| Инструменты автоматизации | `scripts/build-images.sh`, `scripts/deploy.sh`, `scripts/gen-cert.sh`, Helm, GitHub Actions (CI + CD) |
 | Логирование | **Fluent Bit v5.1.3 (DaemonSet) → Loki v3.6.12** (filesystem + PVC) |
-| Prometheus | **Prometheus v3.15** + node-exporter + kube-state-metrics + nginx-exporter приложения |
+| Мониторинг | **Prometheus v3.15** + node-exporter + kube-state-metrics + nginx-exporter приложения |
+| Визуализация | **Grafana v12.3.1** (NodePort 30300): 3 готовых дашборда (железо, k8s/приложение, WAF-логи), Prometheus + Loki подключены автоматически |
 | ОС тестирования | Ubuntu 24.04.5 LTS |
-| Доп. улучшения | **WAF ModSecurity + OWASP CRS** (✅ в k8s и Compose), метрики приложения (✅), безопасность секретов (✅) |
+| Доп. улучшения | **WAF ModSecurity + OWASP CRS** (✅ в k8s и Compose), метрики приложения (✅), Grafana (✅), HTTPS/самоподписанный TLS (✅), безопасность секретов (✅) |
 
 ### Архитектурная схема
 
 ```mermaid
 flowchart LR
-    U[Пользователь] -->|:30080| G[Traefik Gateway API]
+    U[Пользователь] -->|:30080 HTTP / :30443 HTTPS| G[Traefik Gateway API]
     G -->|HTTPRoute| WAF[WAF ModSecurity + CRS]
     WAF -->|/api /admin| NX[nginx + Laravel]
     WAF -->|/ фронтенд| FE[Next.js]
@@ -30,7 +32,47 @@ flowchart LR
     P[Prometheus] --> NX
     NX -.->|логи| FB[Fluent Bit] --> L[(Loki)]
     FE -.->|логи| FB
+    GF[Grafana] --> P
+    GF --> L
 ```
+
+---
+
+## 🚀 Запуск (для проверяющего)
+
+Инструкция — в [README](../readme.md), раздел «Быстрый старт». Минимальный путь:
+
+```bash
+# 0. Кластер k3s (один раз; Ubuntu 24.04)
+curl -sfL https://get.k3s.io | sh -s - --disable traefik --disable metrics-server
+sudo cat /etc/rancher/k3s/k3s.yaml > ~/.kube/config && chmod 600 ~/.kube/config
+
+# 1. Образы приложения в локальный registry
+./scripts/build-images.sh
+
+# 2. Секреты (из шаблона)
+cp local-secrets.example.yaml local-secrets.yaml   # заполнить APP_KEY и пароли
+
+# 3. Развернуть ВСЁ одной командой:
+#    Gateway API (HTTP+HTTPS) → WAF → приложение, Prometheus, Grafana, Loki+Fluent Bit
+./scripts/deploy.sh
+```
+
+Точки входа после развёртывания:
+
+| Сервис | URL | Доступ |
+|---|---|---|
+| Приложение (фронтенд) | `http://<node-ip>:30080/` | открытый |
+| Приложение (HTTPS, самоподписанный TLS) | `https://<node-ip>:30443/` | предупреждение браузера о CA — ожидаемо |
+| Админ-панель Filament | `http://<node-ip>:30080/admin` | пользователь создаётся в CMS |
+| API | `http://<node-ip>:30080/api` | JSON |
+| Grafana | `http://<node-ip>:30300` | `admin` / `GRAFANA_ADMIN_PASSWORD` (по умолчанию `admin`) |
+| Prometheus | `kubectl port-forward -n monitoring svc/prometheus-server 9090:80` | `http://localhost:9090` |
+| Loki | `kubectl port-forward -n logging svc/loki 3100:3100` | `http://localhost:3100` |
+
+> Примечание для ноутбука с нестабильным Wi-Fi: зафиксируйте адрес ноды
+> `--node-ip` на dummy-интерфейсе (SPEC-01, Примечание 3) — иначе смена
+> сети потребует `sudo systemctl restart k3s`.
 
 ---
 
@@ -55,6 +97,8 @@ flowchart LR
 | Метрики приложения | nginx-prometheus-exporter sidecar (stub_status) | HTTP-метрики обязательны для observability | PromQL `nginx_http_requests_total` растёт после запросов |
 | Безопасность секретов | env/Secret/CI-secrets; история очищена от утёкших секретов | требование кейса | SPEC-08: git grep по истории пусто |
 | CI/CD | CI `.github/workflows/ci.yml` (авто на push/PR): helm lint + сборка + push в GHCR. CD `.github/workflows/deploy.yml` (workflow_dispatch): helm upgrade на self-hosted runner — выполняет принимающая сторона | финал — на завершающем этапе | push в main → CI зелёный, образы в GHCR |
+| Grafana | чарт `infra/grafana/values.yaml`, NodePort 30300; Prometheus+Loki подключены автоматически; 3 дашборда из ConfigMap (железо, k8s/приложение, WAF-логи) | визуализация метрик и логов без ручной настройки | `http://<node-ip>:30300` → дашборды с данными |
+| HTTPS (самоподписанный TLS) | listener `https` :443 в Gateway (`certificateRefs` → Secret `full-proj-tls` из `scripts/gen-cert.sh`); terminate на Traefik, WAF инспектирует расшифрованный трафик | безопасность без внешнего CA; фронтенд на относительных URL — работает и по HTTP, и по HTTPS | `curl -sk https://localhost:30443/api/news` → 200; атака на HTTPS → 403 |
 
 ---
 
@@ -74,9 +118,9 @@ v1.36.x (CoreDNS без env service host/port + конфликт CIDR серви
 **Предложения по дальнейшему развитию:**
 
 1. kubeadm-кластер (приоритет кейса) + HA (≥3 узла, внешний etcd).
-2. TLS: cert-manager + HTTPS-listener в Gateway.
-3. Расширенный Gateway API: маршрутизация по path/hostname, несколько бэкендов, traffic splitting.
-4. Grafana-дашборды (Node Exporter Full, nginx, Loki datasource) + алерты.
+2. cert-manager (Let's Encrypt) вместо самоподписанного сертификата + HTTP→HTTPS redirect (самоподписанный TLS уже реализован ✅).
+3. Расширенный Gateway API: маршрутизация по hostname, несколько бэкендов, traffic splitting.
+4. Алерты в Grafana/Alertmanager (дашборды и визуализация уже реализованы ✅).
 5. Security-контур: gitleaks в CI, sealed-secrets, NetworkPolicy, RBAC.
 6. Телком-специфика: HPA по метрикам, геораспределённость, HA БД (репликация/бэкапы,
    S3-совместимое хранилище логов) — потребует внешней инфраструктуры оператора.

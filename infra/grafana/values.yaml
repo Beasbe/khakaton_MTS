@@ -1,0 +1,64 @@
+# Grafana: визуализация метрик (Prometheus) и логов (Loki).
+# Установка (из deploy.sh):
+#   helm upgrade --install grafana oci://ghcr.io/grafana/helm-charts/grafana \
+#     -n monitoring -f infra/grafana/values.yaml --set adminPassword=...
+# Доступ: NodePort 30300 -> http://<node-ip>:30300 (admin / GRAFANA_ADMIN_PASSWORD).
+#
+# Дашборды подкладываются ConfigMap'ом grafana-dashboards
+# (создаётся в deploy.sh из infra/grafana/dashboards/).
+
+adminUser: admin
+# Пароль переопределяется в deploy.sh: --set adminPassword="${GRAFANA_ADMIN_PASSWORD:-admin}"
+adminPassword: admin
+
+# Источники данных: Prometheus (метрики) и Loki (логи) — по in-cluster DNS.
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-server.monitoring.svc.cluster.local:80
+        isDefault: true
+        editable: true
+      - name: Loki
+        uid: loki
+        type: loki
+        access: proxy
+        url: http://loki.logging.svc.cluster.local:3100
+        editable: true
+
+# Провайдер дашбордов из ConfigMap grafana-dashboards
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: default
+        orgId: 1
+        folder: ''
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/default
+
+dashboardsConfigMaps:
+  default: grafana-dashboards
+
+service:
+  type: NodePort
+  nodePort: 30300
+
+persistence:
+  enabled: true
+  size: 1Gi
+
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "50m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"

@@ -3,7 +3,8 @@
 Веб-приложение на стеке **Laravel 10 + Filament CMS + Next.js + MySQL**, защищённое
 WAF **ModSecurity + OWASP CRS**, с полным контуром по кейсу «MTC ENGINEER HACK»:
 
-- **Kubernetes (k3s)** + **Gateway API (Traefik v3)** + **Prometheus** + **Fluent Bit → Loki**;
+- **Kubernetes (k3s)** + **Gateway API (Traefik v3)** + **Prometheus** + **Fluent Bit → Loki** + **Grafana**;
+- HTTPS (самоподписанный TLS, terminate на Gateway) + HTTP;
 - локальная разработка — Docker Compose (`./setup.sh`).
 
 Документация оформлена в подходе **spec-driven development** (требования → критерии
@@ -18,13 +19,15 @@ WAF **ModSecurity + OWASP CRS**, с полным контуром по кейс�
 | Kubernetes | **k3s v1.36.5 (Kubernetes v1.36.5)**, containerd 2.3.4 — [SPEC-01](docs/specs/01-kubernetes.md) |
 | Способ создания кластера | `curl -sfL https://get.k3s.io \| sh -s - --disable traefik --disable metrics-server` на Ubuntu 24.04 |
 | ОС | **Ubuntu 24.04.5 LTS** (проверено; Docker-путь — любая ОС с Docker) |
-| Gateway API | **Traefik v3.7.13** (Gateway API v1.5.1): GatewayClass `traefik`, Gateway `full-proj-gateway`, HTTPRoute `full-proj-route` → Service `waf` — [SPEC-03](docs/specs/03-gateway-api.md) |
+| Gateway API | **Traefik v3.7.13** (Gateway API v1.5.1): GatewayClass `traefik`, Gateway `full-proj-gateway` (HTTP :80 + HTTPS :443), HTTPRoute `full-proj-route` → Service `waf` — [SPEC-03](docs/specs/03-gateway-api.md) |
+| TLS | самоподписанный сертификат (`scripts/gen-cert.sh` → Secret `full-proj-tls`), terminate на Gateway, WAF инспектирует расшифрованный трафик |
 | Веб-приложение | Laravel 10 (PHP 8.3), Filament 3, MySQL 8, Next.js 16 / React 19 — [SPEC-02](docs/specs/02-application.md) |
 | Образы | собираются локально (`scripts/build-images.sh` → registry `localhost:5000`) или в GHCR (CI) |
 | WAF | ModSecurity 3.0.17 + OWASP CRS 4.29.0 (`owasp/modsecurity-crs:nginx-alpine`) — [SPEC-06](docs/specs/06-waf.md), [waf/SPEC.md](waf/SPEC.md) |
 | Мониторинг | Prometheus v3.15 + node-exporter + kube-state-metrics + nginx-exporter приложения — [SPEC-04](docs/specs/04-monitoring.md) |
+| Визуализация | **Grafana v12.3.1** (NodePort 30300): 3 дашборда (железо, k8s/приложение, WAF-логи), Prometheus + Loki подключены автоматически |
 | Логирование | Fluent Bit v5.1.3 (DaemonSet) → Loki v3.6.12 — [SPEC-05](docs/specs/05-logging.md) |
-| Автоматизация | `scripts/build-images.sh` + `scripts/deploy.sh` (идемпотентно), CI/CD подготовлен — [SPEC-07](docs/specs/07-automation.md) |
+| Автоматизация | `scripts/build-images.sh` + `scripts/deploy.sh` + `scripts/gen-cert.sh` (идемпотентно), CI в GH Actions — [SPEC-07](docs/specs/07-automation.md) |
 
 ---
 
@@ -41,7 +44,8 @@ sudo cat /etc/rancher/k3s/k3s.yaml > ~/.kube/config && chmod 600 ~/.kube/config
 # 2. Секреты (из шаблона)
 cp local-secrets.example.yaml local-secrets.yaml   # заполнить APP_KEY и пароли
 
-# 3. Развернуть всё одной командой (Gateway API, WAF, приложение, Prometheus, Loki+Fluent Bit)
+# 3. Развернуть всё одной командой (Gateway API HTTP+HTTPS, WAF, приложение,
+#    Prometheus, Grafana, Loki+Fluent Bit)
 ./scripts/deploy.sh
 ```
 
@@ -49,17 +53,17 @@ cp local-secrets.example.yaml local-secrets.yaml   # заполнить APP_KEY 
 > (конфликт с сервисной сетью k3s, см. SPEC-01). На ноутбуке с нестабильным
 > Wi-Fi/DHCP зафиксируйте адрес ноды через `--node-ip` на dummy-интерфейсе
 > (см. SPEC-01, Примечание 3) — тогда смена сети не требует рестарта k3s.
-> После смены Wi-Fi/сети выполните `sudo systemctl restart k3s` — нода должна
-> перерегистрироваться с актуальным IP, иначе Gateway API и мониторинг не работают.
 
 После развёртывания (вариант A — единая точка входа, весь трафик через WAF):
 
 | Сервис | URL | Описание |
 |---|---|---|
 | Фронтенд | `http://localhost:30080/` | Next.js (за Gateway API + WAF) |
+| Фронтенд (HTTPS) | `https://localhost:30443/` | тот же маршрут, самоподписанный TLS (предупреждение браузера — ожидаемо) |
 | Бэкенд | `http://localhost:30080/api`, `/admin`, `/storage` | nginx → Laravel (за WAF) |
 | Админ-панель | `http://localhost:30080/admin` | Filament CMS |
 | API | `http://localhost:30080/api` | JSON-эндпоинты |
+| Grafana | `http://localhost:30300` | дашборды метрик и логов (`admin` / `GRAFANA_ADMIN_PASSWORD`, по умолчанию `admin`) |
 
 ## Быстрый старт (Docker Compose)
 
@@ -106,12 +110,12 @@ kubectl exec -it -n full-proj deploy/backend -c backend -- php artisan make:fila
 | Prometheus UI | `kubectl port-forward -n monitoring svc/prometheus-server 9090:80` | `http://localhost:9090` | Graph: `up`, `nginx_http_requests_total`, `node_memory_MemAvailable_bytes` |
 | Prometheus API | (тот же проброс) | `http://localhost:9090/api/v1/query?query=up` | программные запросы |
 | Loki (логи) | `kubectl port-forward -n logging svc/loki 3100:3100` | `http://localhost:3100` | API: `/loki/api/v1/query_range`; liveness `/ready`; метрики `/metrics` |
-| Fluent Bit | `kubectl port-forward -n logging pod/$(kubectl get pods -n logging -l app.kubernetes.io/name=fluent-bit -o name \| head -1 \| cut -d/ -f2) 2020:2020` | `http://localhost:2020/api/v1/metrics/prometheus` | метрики самого сборщика |
+| Fluent Bit | `kubectl port-forward -n logging svc/fluent-bit 2020:2020` | `http://localhost:2020/api/v1/metrics/prometheus` | метрики самого сборщика |
 | Traefik API (диагностика) | `kubectl port-forward -n traefik deploy/traefik 8080:8080` | `http://localhost:8080/api/http/routers` | список роутеров/бэкендов Gateway API |
 | MySQL | `kubectl port-forward -n full-proj svc/mysql 3306:3306` | `localhost:3306` | пароль в Secret `app-secrets` (только при необходимости) |
 | WAF напрямую (диагностика) | `kubectl port-forward -n full-proj svc/waf 8081:8080` | `http://localhost:8081` | в обход Gateway — проверить WAF отдельно |
 | nginx бэкенда напрямую | `kubectl port-forward -n full-proj svc/nginx 8082:80` | `http://localhost:8082` | в обход WAF (диагностика) |
-| node-exporter | `kubectl port-forward -n monitoring pod/$(kubectl get pods -n monitoring -l app=prometheus-node-exporter -o name \| head -1 \| cut -d/ -f2) 9100:9100` | `http://localhost:9100/metrics` | метрики узла (CPU/RAM/диск) |
+| node-exporter | `kubectl port-forward -n monitoring svc/prometheus-prometheus-node-exporter 9100:9100` | `http://localhost:9100/metrics` | метрики узла (CPU/RAM/диск) |
 
 ---
 
@@ -130,7 +134,8 @@ kubectl get pods -n monitoring -l app.kubernetes.io/name=kube-state-metrics
 
 | Сервис | Команда | Что смотреть |
 |---|---|---|
-| Приложение + WAF | — | `http://localhost:30080/` (фронт), `/admin`, `/api` |
+| Приложение + WAF | — | `http://localhost:30080/` (HTTP), `https://localhost:30443/` (HTTPS), `/admin`, `/api` |
+| Grafana | — | `http://localhost:30300` (NodePort): дашборды «Node Overview», «Kubernetes / Application», «WAF & Application logs» |
 | Traefik Dashboard | `kubectl port-forward -n traefik deploy/traefik 8080:8080` | `http://localhost:8080/dashboard/` |
 | Prometheus | `kubectl port-forward -n monitoring svc/prometheus-server 9090:80` | `http://localhost:9090` |
 | node-exporter | `kubectl port-forward -n monitoring svc/prometheus-prometheus-node-exporter 9100:9100` | `http://localhost:9100/metrics` |
@@ -141,9 +146,10 @@ kubectl get pods -n monitoring -l app.kubernetes.io/name=kube-state-metrics
 ## Проверка работоспособности (k8s)
 
 ```bash
-# 1. Gateway API + приложение
-kubectl get gateway -n full-proj                    # PROGRAMMED: True
+# 1. Gateway API + приложение (HTTP и HTTPS)
+kubectl get gateway -n full-proj                    # PROGRAMMED: True (listeners http:80, https:443)
 curl -s http://localhost:30080/api/news | head -c 200   # 200 + JSON
+curl -sk https://localhost:30443/api/news | head -c 200  # 200 + JSON (TLS-terminate на Gateway)
 
 # 2. WAF: легитимный трафик проходит, атаки блокируются
 ./waf/tests/run-tests.sh http://localhost:30080     # 18/18
@@ -157,12 +163,25 @@ curl -s 'http://localhost:9090/api/v1/query?query=up' | jq '.data.result[] | {jo
 curl -s 'http://localhost:9090/api/v1/query?query=nginx_http_requests_total'
 kill %1
 
+# 3b. Grafana: http://localhost:30300 — дашборды метрик и логов
+curl -s http://localhost:30300/api/health           # {"database":"ok","version":"12.3.1",...}
+
 # 4. Логирование (после обращения к приложению)
 kubectl port-forward -n logging svc/loki 3100:3100 &
 sleep 2
 curl -s -G 'http://localhost:3100/loki/api/v1/query_range' --data-urlencode 'query={namespace="full-proj"}' | jq '.data.result[].stream'
 kill %1
 ```
+
+## HTTPS (самоподписанный сертификат)
+
+HTTPS-точка входа `https://<node-ip>:30443`: TLS терминируется на Gateway
+(Traefik), сертификат — самоподписанный, из Secret `full-proj-tls`
+(генерируется `scripts/gen-cert.sh`, SAN: `localhost`, `127.0.0.1`,
+`192.168.200.1`; можно добавить IP аргументами). Браузер покажет
+предупреждение о недоверенном CA — нажмите «Дополнительно → Перейти»;
+для CLI используйте `curl -k`. WAF инспектирует и HTTPS-трафик (TLS снят до
+WAF). Фронтенд собран с относительными URL — работает по обоим протоколам.
 
 ---
 

@@ -10,7 +10,7 @@
 | Реализация Gateway API | **Traefik v3.7.13** (провайдер `kubernetesGateway`) |
 | Версия Gateway API | v1.5.1 (стандартный канал CRD) |
 | Используемые ресурсы | `GatewayClass` (`traefik`), `Gateway` (`full-proj-gateway`), `HTTPRoute` (`full-proj-route`) |
-| Внешний доступ | NodePort `30080` (http://&lt;node-ip&gt;:30080) |
+| Внешний доступ | NodePort `30080` (http://&lt;node-ip&gt;:30080) + NodePort `30443` (https://&lt;node-ip&gt;:30443, самоподписанный TLS) |
 
 ## 1. Требования (из кейса)
 
@@ -18,7 +18,7 @@
 |----|-----------|--------|
 | FR-GW-1 | Выбрана open-source реализация Gateway API | ✅ Traefik v3 (helm-чарт) |
 | FR-GW-2 | GatewayClass | ✅ `traefik` (создаётся Traefik-чартом) |
-| FR-GW-3 | Gateway | ✅ `full-proj-gateway`, listener HTTP :80, PROGRAMMED=True |
+| FR-GW-3 | Gateway | ✅ `full-proj-gateway`, listeners: HTTP :80 + HTTPS :443 (TLS Terminate), PROGRAMMED=True |
 | FR-GW-4 | HTTPRoute → Service приложения | ✅ `full-proj-route` → Service `waf` :8080 |
 | FR-GW-5 | Приложение доступно через Gateway API | ✅ curl → 200 + JSON (см. верификацию) |
 | FR-GW-6 | README: название/версия реализации, используемые ресурсы | ✅ эта спецификация + [README](../../readme.md) |
@@ -27,7 +27,7 @@
 ## 2. Реализация
 
 Топология (вариант A — единая точка входа):
-`Клиент → :30080 (NodePort) → Traefik (Gateway API) → HTTPRoute → Service waf`,
+`Клиент → :30080 (HTTP) / :30443 (HTTPS) → Traefik (Gateway API) → HTTPRoute → Service waf`,
 далее WAF сам маршрутизирует по пути: `/api`, `/admin`, `/storage`, `/sanctum`,
 `/livewire`, `/filament`, `/css`, `/js`, `/vendor` → Service nginx → php-fpm;
 всё остальное (фронтенд, `/api/contact`) → Service frontend. Оба приложения
@@ -35,11 +35,18 @@
 
 - **GatewayClass** `traefik` (controllerName `traefik.io/gateway-controller`) — создаётся
   Traefik-чартом при `providers.kubernetesGateway.enabled: true` (`infra/traefik/values.yaml`).
-- **Gateway** `full-proj-gateway` (`helm/templates/gateway.yaml`): listener `http` :80;
-  Traefik сопоставляет listener с entrypoint `web` по порту (`ports.web.port: 80`).
-- **HTTPRoute** `full-proj-route`: `PathPrefix /` → backendRef `waf:8080` — WAF остаётся
-  обязательной точкой входа, порт `nginx` в кластере не публикуется.
-- Traefik-сервис — NodePort `30080` (для k3s без MetalLB; на kubeadm — можно LoadBalancer).
+- **Gateway** `full-proj-gateway` (`helm/templates/gateway.yaml`): listener `http` :80
+  и listener `https` :443 (`tls.mode: Terminate`, `certificateRefs` → Secret
+  `full-proj-tls`); Traefik сопоставляет listeners с entrypoints `web`/`websecure`
+  по порту (`ports.web.port: 80`, `ports.websecure.port: 443`).
+- **HTTPRoute** `full-proj-route`: `PathPrefix /` → backendRef `waf:8080`, прикреплён
+  к обоим listeners — WAF остаётся обязательной точкой входа и для HTTPS
+  (TLS терминируется НА Gateway, WAF инспектирует расшифрованный трафик).
+- Traefik-сервис — NodePort `30080`/`30443` (для k3s без MetalLB; на kubeadm — LoadBalancer).
+- **Сертификат**: самоподписанный (openssl), генерируется идемпотентно скриптом
+  `scripts/gen-cert.sh` (SAN: `localhost`, `127.0.0.1`, `192.168.200.1` — стабильный
+  IP ноды на dummy-интерфейсе; можно добавить IP аргументами). Браузер покажет
+  предупреждение о недоверенном CA — это ожидаемо.
 
 ## 3. Верификация (фактические результаты)
 
@@ -51,13 +58,14 @@ curl -s http://localhost:30080/api/news | head -c 200   # бэкенд чере�
 # {"success":true,"data":[{"id":1,"slug":"zapusk-novogo-sajta",...}]}
 
 curl -s -o /dev/null -w '%{http_code}\n' http://localhost:30080/        # 200 (фронтенд через WAF)
-```
 
-> ⚠️ ВНИМАНИЕ: при работе на ноутбуке со сменой Wi-Fi требуется
-> `sudo systemctl restart k3s` для перерегистрации IP ноды (см. serial.md).
+# HTTPS: TLS-terminate на Gateway, WAF инспектирует расшифрованный трафик
+curl -sk https://localhost:30443/api/news | head -c 200  # 200 + JSON
+curl -sk -o /dev/null -w '%{http_code}\n' -A 'sqlmap/1.7.2' https://localhost:30443/  # 403 (WAF)
+```
 
 ## 4. Дополнительные возможности (роадмап)
 
-- несколько бэкендов/маршрутизация по path (напр. `/` → frontend, `/api` → backend);
-- маршрутизация по hostname;
-- TLS через cert-manager (listener HTTPS, `certificateRefs`).
+- несколько бэкендов/маршрутизация по path и hostname;
+- cert-manager (Let's Encrypt) вместо самоподписанного сертификата;
+- HTTP→HTTPS redirect для публичных стендов.

@@ -34,13 +34,16 @@
 ./scripts/deploy.sh           # весь стек (см. ниже)
 ```
 
-`deploy.sh` выполняет 5 идемпотентных шагов:
+`deploy.sh` выполняет 6 идемпотентных шагов:
 1. Gateway API CRD v1.5.1 + workaround CoreDNS для k3s v1.36.x;
-2. Traefik v3 (Gateway API, NodePort 30080);
-3. приложение: Helm-чарт `helm/` (backend+nginx+exporter, mysql, frontend, WAF,
-   Gateway + HTTPRoute), секреты из `local-secrets.yaml` (не коммитится);
+2. Traefik v3 (Gateway API, NodePort 30080 HTTP + 30443 HTTPS);
+3. самоподписанный TLS-сертификат (`scripts/gen-cert.sh`) + приложение:
+   Helm-чарт `helm/` (backend+nginx+exporter, mysql, frontend, WAF,
+   Gateway с listeners HTTP/HTTPS + HTTPRoute), секреты из `local-secrets.yaml`
+   (не коммитится);
 4. Prometheus (+node-exporter, +kube-state-metrics из чарта);
-5. Loki + Fluent Bit.
+5. Grafana (дашборды из ConfigMap, Prometheus+Loki datasources, NodePort 30300);
+6. Loki + Fluent Bit.
 
 Все чарты тянутся как OCI-артефакты из ghcr.io (без `helm repo add`).
 

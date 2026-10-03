@@ -58,7 +58,7 @@ jobs:
         run: |
           docker build \
             --network host \
-            --build-arg NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || 'http://localhost:30080' }} \
+            --build-arg NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || '' }} \
             -t ghcr.io/${{ steps.repo.outputs.lower }}/frontend:${{ github.sha }} \
             -t ghcr.io/${{ steps.repo.outputs.lower }}/frontend:latest \
             ./It_project

@@ -8,8 +8,10 @@
 set -euo pipefail
 
 REGISTRY="${REGISTRY:-localhost:5000/full-proj}"
-# URL бэкенда, вшиваемый во фронтенд при сборке (Gateway API NodePort)
-API_URL="${API_URL:-http://localhost:30080}"
+# URL бэкенда, вшиваемый во фронтенд при сборке. Пустая строка = относительные
+# URL (/api, /storage) — работают и по HTTP :30080, и по HTTPS :30443.
+# SSR-запросы внутри кластера ходят через BACKEND_INTERNAL_API_URL (helm).
+API_URL="${API_URL:-}"
 
 echo "==> Registry: ${REGISTRY}"
 echo "==> API URL для фронтенда: ${API_URL}"

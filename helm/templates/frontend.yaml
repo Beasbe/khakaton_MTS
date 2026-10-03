@@ -18,6 +18,8 @@ spec:
       containers:
         - name: frontend
           image: {{ .Values.registry }}/frontend:{{ .Values.image.tag }}
+          # :latest из локального registry — всегда тянуть свежий образ
+          imagePullPolicy: Always
           ports:
             - containerPort: {{ .Values.frontend.port }}
           resources:
