@@ -52,10 +52,8 @@ sudo cat /etc/rancher/k3s/k3s.yaml > ~/.kube/config && chmod 600 ~/.kube/config
 
 # 2. Секреты: свой файл + пароль Grafana
 cp local-secrets.example.yaml local-secrets.yaml
-#    APP_KEY — сгенерировать одной из команд (выводится готовый ключ, скопировать в файл):
+#    APP_KEY — сгенерировать командой (выводится готовый ключ, скопировать в файл):
 #      echo "base64:$(openssl rand -base64 32)"          # проще всего
-#      # или через docker-утилиту (одноразовый контейнер, никуда не «летит»):
-#      docker run --rm php:8.3-cli php -r 'echo "base64:".base64_encode(random_bytes(32)), PHP_EOL;'
 #    DB_PASSWORD / DB_ROOT_PASSWORD — любые свои значения
 export GRAFANA_ADMIN_PASSWORD=...                  # пароль Grafana (обязателен)
 
@@ -84,7 +82,7 @@ kubectl exec -it -n full-proj deploy/backend -c backend -- php artisan make:fila
 | Приложение (HTTPS, самоподписанный TLS) | `https://<node-ip>:30443/` | предупреждение браузера о CA — ожидаемо |
 | Админ-панель Filament | `https://<node-ip>:30443/admin` | пользователь создаётся в CMS |
 | API | `https://<node-ip>:30443/api` | JSON |
-| Grafana | `http://<node-ip>:30300` | `admin` / `GRAFANA_ADMIN_PASSWORD` (по умолчанию `admin`) |
+| Grafana | `http://<node-ip>:30300` | `admin` / пароль из `GRAFANA_ADMIN_PASSWORD` (задаётся при развёртывании) |
 | Prometheus | `kubectl port-forward -n monitoring svc/prometheus-server 9090:80` | `http://localhost:9090` |
 | Loki | `kubectl port-forward -n logging svc/loki 3100:3100` | `http://localhost:3100` |
 
@@ -101,7 +99,7 @@ kubectl exec -it -n full-proj deploy/backend -c backend -- php artisan make:fila
 | Prometheus собирает метрики | prometheus-чарт + node-exporter + kube-state-metrics + sidecar nginx-exporter (аннотации) | метрики и инфраструктуры, и приложения | `kubectl port-forward -n monitoring svc/prometheus-server 9090:80`; `curl localhost:9090/api/v1/query?query=up`; `nginx_http_requests_total` |
 | Fluent Bit собирает логи | DaemonSet Fluent Bit (CRI-парсер) → Loki single-binary | лёгкий сборщик, централизованное хранилище | после `curl` к приложению: Loki API `{namespace="full-proj"}` содержит access-лог |
 | Ubuntu 24.04 | весь стенд развёрнут на Ubuntu 24.04.5 LTS | требование кейса | воспроизведение по `deploy.sh` |
-| Автоматизация | `deploy.sh` (5 шагов, Helm из OCI); повторный запуск идемпотентен | минимум команд, воспроизводимость | `./scripts/deploy.sh` повторно → «has been upgraded», без ошибок |
+| Автоматизация | `deploy.sh` (7 шагов, Helm из OCI, Argo CD); повторный запуск идемпотентен | минимум команд, воспроизводимость | `./scripts/deploy.sh` повторно → «has been upgraded», без ошибок |
 
 ### Дополнительные улучшения
 
@@ -120,23 +118,54 @@ kubectl exec -it -n full-proj deploy/backend -c backend -- php artisan make:fila
 
 ## Страница 3. Ревью работы и потенциальное масштабирование
 
-**Главная особенность решения.** Полный набор обязательных пунктов кейса в едином
-контуре k3s: Gateway API (Traefik) как единственная точка входа, WAF ModSecurity
-перед приложением, метрики приложения и узла в Prometheus, логи в Loki — всё
-воспроизводится одной командой из чистого репозитория.
+**Главная особенность решения — универсальность сборки под любую задачу.**
+Инфраструктурный контур (Gateway API + WAF + наблюдаемость + GitOps) перекрывает
+большой класс проблем на этапах сборки и деплоя ещё до написания бизнес-логики:
 
-**Самое сложное решение.** Реализация частотного ограничения (L7-DDoS): коллекции
-ModSecurity v3 не персистятся между запросами (проверено экспериментально), поэтому
-правило сделано на nginx `limit_req` (ADR-4 в `waf/SPEC.md`); плюс отладка DNS k3s
-v1.36.x (CoreDNS без env service host/port + конфликт CIDR сервисов с маршрутами VPN —
-зафиксировано в SPEC-01).
+- **безопасность** — WAF инспектирует весь трафик (единственная точка входа),
+  TLS на Gateway, секреты вне git (SOPS), пиннинг диджестов, gitleaks в CI;
+- **надёжность деплоя** — Argo CD: кластер всегда = репозиторий, ручной дрейф
+  откатывается автоматически, откат = revert в git;
+- **наблюдаемость** — Prometheus + Loki + Grafana с готовыми дашбордами
+  (железо, приложение, WAF-логи, живость сервисов);
+- **воспроизводимость** — одна команда `./scripts/deploy.sh` из чистого клона
+  репозитория, идемпотентность проверена.
+
+Демо-приложение (Laravel + Next.js) — лишь один из возможных «грузов» этого
+контура: тот же Helm-чарт и пайплайн принимают другой бэкенд/фронтенд с
+минимальными правками — инфраструктурный слой переиспользуется целиком.
+
+**Самое сложное решение — перенос приложения с Docker Compose в Kubernetes.**
+Пришлось не «поднять compose в подах», а перепроектировать контур:
+
+1. **Декомпозиция сервисов**: compose-сервисы (app/webserver/db/waf/frontend)
+   → Deployments backend(+nginx+exporter)/frontend/waf/mysql, состояние MySQL —
+   на PVC (данные переживают пересоздание подов);
+2. **Единая точка входа (вариант A)**: весь трафик — через Gateway API → WAF,
+   маршрутизация по path (`/api`, `/admin` → бэкенд, остальное → фронтенд),
+   внешних портов у приложений нет — обойти WAF нельзя;
+3. **TLS-терминация и честная схема клиента**: HTTPS снимается на Gateway,
+   дальше — HTTP; проброс `X-Forwarded-Proto` цепочкой Gateway → WAF → nginx →
+   php-fpm (Laravel `TrustProxies`), иначе приложение генерирует http-URL из-под
+   https и ломается;
+4. **Секреты и артефакты**: секреты вне git (SOPS/`existingSecret`),
+   самоподписанный сертификат в Secret, образы — по git SHA в GHCR;
+5. **Специфика k3s v1.36**: отладка CoreDNS (env service host/port) и DNS
+   на ноутбучном стенде (VPN/Wi-Fi) — зафиксировано в SPEC-01 и serial.md.
+
+Отдельно выделю нетривиальное решение по L7-DDoS: коллекции ModSecurity v3 не
+персистятся между запросами (проверено экспериментально), поэтому rate-limit
+реализован на nginx `limit_req` (ADR-4 в `waf/SPEC.md`).
 
 **Предложения по дальнейшему развитию:**
 
 1. kubeadm-кластер (приоритет кейса) + HA (≥3 узла, внешний etcd).
-2. cert-manager (Let's Encrypt) вместо самоподписанного сертификата + HTTP→HTTPS redirect (самоподписанный TLS уже реализован ✅).
-3. Расширенный Gateway API: маршрутизация по hostname, несколько бэкендов, traffic splitting.
+2. cert-manager (Let's Encrypt) вместо самоподписанного сертификата
+   (самоподписанный TLS и HTTP→HTTPS-редирект уже реализованы ✅).
+3. Расширенный Gateway API: маршрутизация по hostname, несколько бэкендов,
+   traffic splitting / canary.
 4. Алерты в Grafana/Alertmanager (дашборды и визуализация уже реализованы ✅).
-5. Security-контур: gitleaks в CI, sealed-secrets, NetworkPolicy, RBAC.
+5. Security-контур: external-secrets/sealed-secrets вместо передачи age-ключа
+   (gitleaks и SOPS уже реализованы ✅), NetworkPolicy, RBAC.
 6. Телком-специфика: HPA по метрикам, геораспределённость, HA БД (репликация/бэкапы,
    S3-совместимое хранилище логов) — потребует внешней инфраструктуры оператора.
