@@ -264,7 +264,8 @@ WAF). Фронтенд собран с относительными URL — ра
 - [`docs/passport.md`](docs/passport.md) — паспорт решения по структуре задания;
 - [`docs/specs/`](docs/specs/) — спецификации разделов задания (01–09);
 - [`waf/SPEC.md`](waf/SPEC.md) — детальная спецификация WAF;
-- [`MIGRATION.md`](MIGRATION.md) — перенос репозитория на новый GitHub.
+- [`MIGRATION.md`](MIGRATION.md) — перенос репозитория на новый GitHub;
+- [`serial.md`](serial.md) — журнал инцидентов и принятых решений за время хакатона.
 
 ## Безопасность
 
