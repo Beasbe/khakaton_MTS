@@ -1,0 +1,16 @@
+# Gitleaks: конфигурация сканирования секретов (CI: джоба secrets).
+[extend]
+useDefault = true
+
+# Laravel APP_KEY (формат base64:...) стандартными правилами не ловится.
+# В истории есть скомпрометированный ключ (ротирован 2026-10-04) — поэтому
+# файл-шаблон CMS/.env.example в allowlist: это шаблон без реальных секретов.
+[[rules]]
+id = "laravel-app-key"
+description = "Laravel APP_KEY"
+regex = '''APP_KEY\s*[:=]\s*"?base64:[A-Za-z0-9+/]{40,}={0,2}'''
+
+[allowlist]
+paths = [
+  '''^CMS/\.env\.example$''',
+]

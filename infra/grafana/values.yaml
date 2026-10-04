@@ -8,8 +8,10 @@
 # (создаётся в deploy.sh из infra/grafana/dashboards/).
 
 adminUser: admin
-# Пароль переопределяется в deploy.sh: --set adminPassword="${GRAFANA_ADMIN_PASSWORD:-admin}"
-adminPassword: admin
+# Пароль НЕ в git: Secret grafana-admin-secret создаёт deploy.sh из
+# GRAFANA_ADMIN_PASSWORD (обязательная переменная).
+admin:
+  existingSecret: grafana-admin-secret
 
 # Источники данных: Prometheus (метрики) и Loki (логи) — по in-cluster DNS.
 datasources:

@@ -85,6 +85,24 @@ jobs:
           fi
 
       ########################################
+      # SECRETS (SOPS)
+      ########################################
+
+      - name: Install sops + age
+        run: |
+          sudo curl -sL -o /usr/local/bin/sops \
+            https://github.com/getsops/sops/releases/download/v3.9.4/sops-v3.9.4.linux.amd64
+          sudo chmod +x /usr/local/bin/sops
+          curl -sL -o /tmp/age.tar.gz \
+            https://github.com/FiloSottile/age/releases/download/v1.2.0/age-v1.2.0-linux-amd64.tar.gz
+          sudo tar -xzf /tmp/age.tar.gz -C /usr/local/bin --strip-components=1 age/age age/age-keygen
+
+      - name: Decrypt secrets (helm/secrets/dev.yaml)
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+        run: sops -d helm/secrets/dev.yaml > /tmp/dev-secrets.yaml
+
+      ########################################
       # DEPLOY
       ########################################
 
@@ -97,16 +115,8 @@ jobs:
             --timeout 15m \
             --set image.tag=${{ github.sha }} \
             --set registry=ghcr.io/${{ steps.repo.outputs.lower }} \
-            --set-string secrets.APP_KEY="${{ secrets.APP_KEY }}" \
-            --set-string secrets.DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
-            --set-string secrets.DB_ROOT_PASSWORD="${{ secrets.DB_ROOT_PASSWORD }}" \
-            --set-string secrets.APP_URL="${{ secrets.APP_URL }}" \
-            --set-string secrets.SMTP_HOST="${{ secrets.SMTP_HOST }}" \
-            --set-string secrets.SMTP_PORT="${{ secrets.SMTP_PORT }}" \
-            --set-string secrets.SMTP_USER="${{ secrets.SMTP_USER }}" \
-            --set-string secrets.SMTP_PASS="${{ secrets.SMTP_PASS }}" \
-            --set-string secrets.SMTP_FROM="${{ secrets.SMTP_FROM }}" \
-            --set-string secrets.TO_EMAIL="${{ secrets.TO_EMAIL }}"
+            -f /tmp/dev-secrets.yaml
+          rm -f /tmp/dev-secrets.yaml
 
       ########################################
       # WAIT

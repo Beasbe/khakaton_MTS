@@ -26,7 +26,23 @@ echo "==> Проверка зависимостей..."
 command -v kubectl >/dev/null || { echo "kubectl не найден"; exit 1; }
 command -v helm >/dev/null || { echo "helm не найден"; exit 1; }
 kubectl cluster-info >/dev/null || { echo "Кластер недоступен (kubectl cluster-info)"; exit 1; }
-[ -f "${SECRETS_FILE}" ] || { echo "Файл секретов ${SECRETS_FILE} не найден (см. local-secrets.example.yaml)"; exit 1; }
+
+# Секреты приложения: приоритет — SOPS-шифрованный helm/secrets/dev.yaml
+# (в git), fallback — local-secrets.yaml (gitignored, для быстрого локального
+# стенда). sops читает приватный age-ключ из ~/.config/sops/age/keys.txt
+# или из env SOPS_AGE_KEY.
+SECRETS_VALUES=""
+if [ -f helm/secrets/dev.yaml ] && command -v sops >/dev/null 2>&1; then
+  SECRETS_VALUES="$(mktemp)"
+  sops -d helm/secrets/dev.yaml > "${SECRETS_VALUES}"
+  echo "==> Секреты: SOPS-расшифровка helm/secrets/dev.yaml"
+elif [ -f "${SECRETS_FILE}" ]; then
+  SECRETS_VALUES="${SECRETS_FILE}"
+  echo "==> Секреты: local-secrets.yaml (без SOPS)"
+else
+  echo "Ошибка: нужен helm/secrets/dev.yaml (с sops) ИЛИ ${SECRETS_FILE}" >&2
+  exit 1
+fi
 
 # Workaround для k3s v1.36.x: CoreDNS может стартовать без env
 # KUBERNETES_SERVICE_HOST/PORT — DNS кластера тогда не работает (NXDOMAIN).
@@ -63,7 +79,8 @@ echo
 #  * Secret app-secrets — рендерится шаблоном чарта из local-secrets.yaml;
 #  * TLS-секрет full-proj-tls — создан gen-cert.sh выше.
 kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
-helm template full-proj ./helm -f "${SECRETS_FILE}" -s templates/secrets.yaml | kubectl apply -f -
+helm template full-proj ./helm -f "${SECRETS_VALUES}" -s templates/secrets.yaml | kubectl apply -f -
+if [ "${SECRETS_VALUES}" != "${SECRETS_FILE}" ]; then rm -f "${SECRETS_VALUES}"; fi
 
 echo "==> 4/7 Мониторинг: Prometheus (с node-exporter и kube-state-metrics из чарта)..."
 helm upgrade --install prometheus "${CHART_PROMETHEUS}" \
@@ -71,13 +88,18 @@ helm upgrade --install prometheus "${CHART_PROMETHEUS}" \
   -f infra/prometheus/values.yaml
 
 echo "==> 5/7 Grafana (дашборды Prometheus + Loki, NodePort 30300)..."
+: "${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD не задан — см. README (DevSecOps)}"
+kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+kubectl create secret generic grafana-admin-secret -n monitoring \
+  --from-literal=admin-user=admin \
+  --from-literal=admin-password="${GRAFANA_ADMIN_PASSWORD}" \
+  --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 kubectl create configmap grafana-dashboards -n monitoring \
   --from-file=infra/grafana/dashboards \
   --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 helm upgrade --install grafana "${CHART_GRAFANA}" \
   -n monitoring \
-  -f infra/grafana/values.yaml \
-  --set adminPassword="${GRAFANA_ADMIN_PASSWORD:-admin}"
+  -f infra/grafana/values.yaml
 
 echo "==> 6/7 Логирование: Loki + Fluent Bit..."
 helm upgrade --install loki "${CHART_LOKI}" \
@@ -108,7 +130,9 @@ echo ""
 # приложение: GitOps (Argo CD) — сверка с репозиторием в http://<node-ip>:30444
 curl -sk https://localhost:30443/api/news | head -c 300
 
-# Grafana (метрики + логи): http://<node-ip>:30300 (admin / GRAFANA_ADMIN_PASSWORD)
+echo "  # Grafana (метрики + логи): http://<node-ip>:30300 (admin / GRAFANA_ADMIN_PASSWORD)"
+echo "  # Argo CD (GitOps): http://<node-ip>:30444 — пароль:"
+echo "  #   kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d"
 echo ""
 echo "  # WAF: легитимный трафик 200, атаки 403"
 echo "  curl -s -o /dev/null -w '%{http_code}\n' http://localhost:30080/"

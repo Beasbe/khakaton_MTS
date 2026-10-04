@@ -8,9 +8,8 @@ configs:
   params:
     # HTTP без TLS (демо-стенд; наружу смотрит NodePort 30444)
     server.insecure: true
-  secret:
-    # bcrypt-хеш пароля admin = "argocd123" (htpasswd -nbBC 10 "" argocd123)
-    argocdServerAdminPassword: "$2y$10$sDT1k3zj7rdIrNq/EPSf6.clBM/YUWRywVph0ur16z.fayrehu.wG"
+  # Пароль админа НЕ в git: Argo CD при первом старте сам генерирует его в
+  # Secret argocd-initial-admin-secret (команда извлечения — в README).
 
 server:
   service:
