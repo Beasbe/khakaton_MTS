@@ -41,13 +41,25 @@ sudo cat /etc/rancher/k3s/k3s.yaml > ~/.kube/config && chmod 600 ~/.kube/config
 # 1. Собрать образы в локальный registry
 ./scripts/build-images.sh
 
-# 2. Секреты (из шаблона)
-cp local-secrets.example.yaml local-secrets.yaml   # заполнить APP_KEY и пароли
+# 2. Секреты: создать свой файл (НЕ коммитится) и задать пароли
+cp local-secrets.example.yaml local-secrets.yaml
+#    APP_KEY — сгенерировать:
+#      docker run --rm php:8.3-cli php -r 'echo "base64:".base64_encode(random_bytes(32)), PHP_EOL;'
+#    DB_PASSWORD / DB_ROOT_PASSWORD — любые свои значения
 
-# 3. Развернуть всё одной командой (Gateway API HTTP+HTTPS, WAF, приложение,
-#    Prometheus, Grafana, Loki+Fluent Bit)
+# 3. Пароль Grafana (обязательная переменная — задать свой)
+export GRAFANA_ADMIN_PASSWORD=...
+
+# 4. Развернуть всё одной командой (Gateway API HTTP+HTTPS, WAF, приложение,
+#    Prometheus, Grafana, Loki+Fluent Bit, Argo CD)
 ./scripts/deploy.sh
 ```
+
+> Пароли **не хранятся в репозитории**: секреты приложения — в вашем
+> `local-secrets.yaml` (или SOPS-шифрованном `helm/secrets/dev.yaml` для
+> CI/CD, см. «DevSecOps» ниже). deploy.sh проверит, что `APP_KEY` заполнен
+> реальным ключом (не `CHANGE_ME`), и упадёт с подсказкой, если Grafana-пароль
+> не задан.
 
 > ⚠️ Если на машине включён VPN с перехватом DNS/подсетей — отключите его
 > (конфликт с сервисной сетью k3s, см. SPEC-01). На ноутбуке с нестабильным
@@ -62,8 +74,25 @@ cp local-secrets.example.yaml local-secrets.yaml   # заполнить APP_KEY 
 | Бэкенд | `https://localhost:30443/api`, `/admin`, `/storage` | nginx → Laravel (за WAF) |
 | Админ-панель | `https://localhost:30443/admin` | Filament CMS |
 | API | `https://localhost:30443/api` | JSON-эндпоинты |
-| Grafana | `http://localhost:30300` | дашборды метрик и логов (логин `admin`; пароль задаётся при развёртывании через `GRAFANA_ADMIN_PASSWORD`) |
-| Argo CD (GitOps) | `http://localhost:30444` | сверка кластера с репозиторием (пароль — из Secret, команда ниже) |
+| Grafana | `http://localhost:30300` | логин `admin`; пароль — тот, что вы задали в `GRAFANA_ADMIN_PASSWORD` |
+| Argo CD (GitOps) | `http://localhost:30444` | логин `admin`; пароль — из Secret (команда ниже) |
+
+### Доступы и пароли (для проверяющего)
+
+Пароли нигде не хардкодятся — каждый генерируется/задаётся при развёртывании:
+
+```bash
+# Argo CD: пароль сгенерирован автоматически при первом запуске
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d; echo
+
+# Grafana: ваш пароль из шага 3 выше (логин admin)
+
+# CMS (Filament): создать пользователя админки интерактивно
+kubectl exec -it -n full-proj deploy/backend -c backend -- php artisan make:filament-user
+
+# БД (если нужно): креды в Secret app-secrets
+kubectl -n full-proj get secret app-secrets -o jsonpath='{.data.DB_PASSWORD}' | base64 -d; echo
+```
 
 ## Быстрый старт (Docker Compose)
 
@@ -206,6 +235,15 @@ WAF). Фронтенд собран с относительными URL — ра
 
   # Grafana: задаётся при развёртывании (обязательная переменная)
   GRAFANA_ADMIN_PASSWORD=... ./scripts/deploy.sh
+  ```
+
+  Для CD-контура на своём GitHub-репозитории сгенерируйте СОБСТВЕННЫЙ age-ключ:
+
+  ```bash
+  age-keygen -o ~/.config/sops/age/keys.txt        # приватный ключ — НЕ в git
+  # публичный ключ добавьте в .sops.yaml (creation_rules.age),
+  # перешифруйте: sops -e -i helm/secrets/dev.yaml
+  # в GitHub Actions: Secret SOPS_AGE_KEY = содержимое приватного ключа
   ```
 
 - **Argo CD (GitOps)**: кластер непрерывно сверяется с репозиторием — Application

@@ -44,6 +44,13 @@ else
   exit 1
 fi
 
+# APP_KEY должен быть реальным ключом, а не плейсхолдером из шаблона
+if grep -q 'base64:CHANGE_ME' "${SECRETS_VALUES}" 2>/dev/null; then
+  echo "Ошибка: secrets.APP_KEY — плейсхолдер CHANGE_ME. Сгенерируйте ключ:" >&2
+  echo "  docker run --rm php:8.3-cli php -r 'echo \"base64:\".base64_encode(random_bytes(32)), PHP_EOL;'" >&2
+  exit 1
+fi
+
 # Workaround для k3s v1.36.x: CoreDNS может стартовать без env
 # KUBERNETES_SERVICE_HOST/PORT — DNS кластера тогда не работает (NXDOMAIN).
 # Patch применяется только если env отсутствует; безвреден для других версий k3s.

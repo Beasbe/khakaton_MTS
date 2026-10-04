@@ -50,12 +50,23 @@ sudo cat /etc/rancher/k3s/k3s.yaml > ~/.kube/config && chmod 600 ~/.kube/config
 # 1. Образы приложения в локальный registry
 ./scripts/build-images.sh
 
-# 2. Секреты (из шаблона)
-cp local-secrets.example.yaml local-secrets.yaml   # заполнить APP_KEY и пароли
+# 2. Секреты: свой файл + пароль Grafana
+cp local-secrets.example.yaml local-secrets.yaml   # сгенерировать APP_KEY, задать пароли БД
+export GRAFANA_ADMIN_PASSWORD=...                  # пароль Grafana (обязателен)
 
 # 3. Развернуть ВСЁ одной командой:
-#    Gateway API (HTTP+HTTPS) → WAF → приложение, Prometheus, Grafana, Loki+Fluent Bit
+#    Gateway API (HTTP+HTTPS) → WAF → приложение, Prometheus, Grafana,
+#    Loki+Fluent Bit, Argo CD (GitOps)
 ./scripts/deploy.sh
+```
+
+Пароли в репозитории не хранятся — генерируются при развёртывании:
+`APP_KEY` — командой из README; Argo CD — автоматически (извлечение ниже);
+Grafana — из `GRAFANA_ADMIN_PASSWORD`; пользователь CMS — интерактивно.
+
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d   # Argo CD
+kubectl exec -it -n full-proj deploy/backend -c backend -- php artisan make:filament-user              # CMS
 ```
 
 Точки входа после развёртывания:
