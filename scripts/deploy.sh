@@ -27,6 +27,10 @@ command -v kubectl >/dev/null || { echo "kubectl не найден"; exit 1; }
 command -v helm >/dev/null || { echo "helm не найден"; exit 1; }
 kubectl cluster-info >/dev/null || { echo "Кластер недоступен (kubectl cluster-info)"; exit 1; }
 
+# Namespace приложения нужен уже на шаге 3 (gen-cert.sh и Secret) —
+# создаём заранее, идемпотентно.
+kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+
 # Секреты приложения: приоритет — SOPS-шифрованный helm/secrets/dev.yaml
 # (в git), fallback — local-secrets.yaml (gitignored, для быстрого локального
 # стенда). sops читает приватный age-ключ из ~/.config/sops/age/keys.txt
@@ -85,7 +89,6 @@ echo
 # (argocd/application.yaml). Здесь готовим только то, что живёт ВНЕ git:
 #  * Secret app-secrets — рендерится шаблоном чарта из local-secrets.yaml;
 #  * TLS-секрет full-proj-tls — создан gen-cert.sh выше.
-kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 helm template full-proj ./helm -f "${SECRETS_VALUES}" -s templates/secrets.yaml | kubectl apply -f -
 if [ "${SECRETS_VALUES}" != "${SECRETS_FILE}" ]; then rm -f "${SECRETS_VALUES}"; fi
 
