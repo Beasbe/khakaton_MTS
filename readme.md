@@ -43,7 +43,9 @@ sudo cat /etc/rancher/k3s/k3s.yaml > ~/.kube/config && chmod 600 ~/.kube/config
 
 # 2. Секреты: создать свой файл (НЕ коммитится) и задать пароли
 cp local-secrets.example.yaml local-secrets.yaml
-#    APP_KEY — сгенерировать:
+#    APP_KEY — сгенерировать одной из команд (выводится готовый ключ, скопировать в файл):
+#      echo "base64:$(openssl rand -base64 32)"          # проще всего
+#      # или через docker-утилиту (одноразовый контейнер, никуда не «летит»):
 #      docker run --rm php:8.3-cli php -r 'echo "base64:".base64_encode(random_bytes(32)), PHP_EOL;'
 #    DB_PASSWORD / DB_ROOT_PASSWORD — любые свои значения
 

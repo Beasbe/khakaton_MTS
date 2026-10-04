@@ -51,7 +51,12 @@ sudo cat /etc/rancher/k3s/k3s.yaml > ~/.kube/config && chmod 600 ~/.kube/config
 ./scripts/build-images.sh
 
 # 2. Секреты: свой файл + пароль Grafana
-cp local-secrets.example.yaml local-secrets.yaml   # сгенерировать APP_KEY, задать пароли БД
+cp local-secrets.example.yaml local-secrets.yaml
+#    APP_KEY — сгенерировать одной из команд (выводится готовый ключ, скопировать в файл):
+#      echo "base64:$(openssl rand -base64 32)"          # проще всего
+#      # или через docker-утилиту (одноразовый контейнер, никуда не «летит»):
+#      docker run --rm php:8.3-cli php -r 'echo "base64:".base64_encode(random_bytes(32)), PHP_EOL;'
+#    DB_PASSWORD / DB_ROOT_PASSWORD — любые свои значения
 export GRAFANA_ADMIN_PASSWORD=...                  # пароль Grafana (обязателен)
 
 # 3. Развернуть ВСЁ одной командой:
@@ -61,8 +66,10 @@ export GRAFANA_ADMIN_PASSWORD=...                  # пароль Grafana (об�
 ```
 
 Пароли в репозитории не хранятся — генерируются при развёртывании:
-`APP_KEY` — командой из README; Argo CD — автоматически (извлечение ниже);
-Grafana — из `GRAFANA_ADMIN_PASSWORD`; пользователь CMS — интерактивно.
+`APP_KEY` — командой выше (готовый ключ копируется в `local-secrets.yaml`;
+одноразовый `docker run` — просто генератор строки, образ в кластер не
+попадает); Argo CD — автоматически (извлечение ниже); Grafana — из
+`GRAFANA_ADMIN_PASSWORD`; пользователь CMS — интерактивно.
 
 ```bash
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d   # Argo CD

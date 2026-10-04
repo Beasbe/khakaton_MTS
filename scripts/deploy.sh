@@ -47,7 +47,7 @@ fi
 # APP_KEY должен быть реальным ключом, а не плейсхолдером из шаблона
 if grep -q 'base64:CHANGE_ME' "${SECRETS_VALUES}" 2>/dev/null; then
   echo "Ошибка: secrets.APP_KEY — плейсхолдер CHANGE_ME. Сгенерируйте ключ:" >&2
-  echo "  docker run --rm php:8.3-cli php -r 'echo \"base64:\".base64_encode(random_bytes(32)), PHP_EOL;'" >&2
+  echo "  echo \"base64:\$(openssl rand -base64 32)\"" >&2
   exit 1
 fi
 
